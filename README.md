@@ -1,6 +1,6 @@
 # Gastos
 
-App de controle de gastos para iPhone: categorias, cartões Itaú e Bradesco, parcelas, assinaturas recorrentes e gráficos mensais e anuais.
+App de controle de gastos para iPhone: caixinhas com saldo automático, entradas (salário etc.), transferências entre caixinhas, categorias, cartões, parcelas, assinaturas recorrentes e gráficos mensais e anuais.
 
 Abra https://agnelojr.github.io/Gastos_Amor/ no Safari e toque em **Compartilhar → Adicionar à Tela de Início**.
 
