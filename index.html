@@ -511,7 +511,7 @@ const now = new Date();
 let curY = now.getFullYear(), curM = now.getMonth(), gY = now.getFullYear();
 let payFilter = "all", yCardF = "all", view = "mes";
 
-const LS_KEY = "gastos.v1";
+const LS_KEY = "gastosAmor.v1";
 function ensureCats(){ if (!state.cats.find(c=>c.id==="assin")) state.cats.push({id:"assin",n:"Assinaturas",e:"🔁",c:null}); }
 function lsLoad(){ try{ const j = JSON.parse(localStorage.getItem(LS_KEY)||"null"); if (j){ state.expenses = j.expenses||[]; if (j.cats && j.cats.length) state.cats = j.cats; if (Array.isArray(j.cards)) state.cards = j.cards; } }catch(e){} rebuildPay(); ensureCats(); }
 function lsSave(){ try{ localStorage.setItem(LS_KEY, JSON.stringify({expenses:state.expenses,cats:state.cats,cards:state.cards})); }catch(e){} }
@@ -1135,7 +1135,7 @@ $("#mYes").addEventListener("click", async ()=>{ $("#modal").classList.remove("o
 $("#syncNote").textContent = "Dados salvos neste aparelho";
 
 /* ---------------- backup ---------------- */
-const BK_KEY = "gastos.lastBackup";
+const BK_KEY = "gastosAmor.lastBackup";
 function bkInfo(){
   let t=null; try{ t = localStorage.getItem(BK_KEY); }catch(e){}
   const el = $("#bkInfo"); if (!el) return;
