@@ -935,12 +935,13 @@ function renderFaturas(al){
     if (hoje <= fatura(k,...addM(y,m,-1)).fim) [y,m] = addM(y,m,-1);
     else if (hoje > fatura(k,y,m).fim) [y,m] = addM(y,m,1);
     const atual = fatura(k,y,m), ant = fatura(k,...addM(y,m,-1)), prox = fatura(k,...addM(y,m,1));
-    const tot = f => sum(al.filter(a => a.e.pag===k.id && a.d >= f.ini && a.d <= f.fim));
+    const conta = a => a.d <= hoje || a.n > 1;
+    const tot = f => sum(al.filter(a => a.e.pag===k.id && a.d >= f.ini && a.d <= f.fim && conta(a)));
     const row = (f, nome, sub, cls="") => `<div class="frow ${cls}"><button class="fmain" data-fat="${esc(k.id)}|${f.ini}|${f.fim}"><span>${nome}<small>${sub}${f.ajustada?' · <i>datas ajustadas</i>':''}</small></span><b class="num">${brl(tot(f))}</b></button><button class="fedit" data-fatedit="${esc(k.id)}|${ymKeyF(f.y,f.m)}" aria-label="Ajustar datas desta fatura">✎</button></div>`;
     return `<div class="card fat"><div class="fh"><span class="dot" style="background:${PAY[k.id].c}"></span><b>Fatura ${esc(k.n)}</b><button class="link" data-fatcal="${esc(k.id)}" style="margin-left:auto;font-size:13px">📅 Datas de cada mês</button></div>` +
       (hoje <= ant.venc ? row(ant, "Fechada · a pagar", `${brD(ant.ini)} a ${brD(ant.fim)} · vence ${brD(ant.venc)}`) : "") +
       row(atual, "Atual (aberta)", `${brD(atual.ini)} a ${brD(atual.fim)} · vence ${brD(atual.venc)}`, "atual") +
-      row(prox, "Próxima", `${brD(prox.ini)} a ${brD(prox.fim)} · já lançado`) + `</div>`;
+      row(prox, "Próxima", `${brD(prox.ini)} a ${brD(prox.fim)} · lançado até hoje + parcelas`) + `</div>`;
   }).join("");
 }
 // list of the coming invoices so the closing/due date can be chosen month by month
@@ -994,7 +995,7 @@ document.addEventListener("click", e => {
   const g = e.target.closest("[data-goaj]"); if (g){ go("aj"); setTimeout(()=>$("#cardEdit").scrollIntoView({behavior:"smooth",block:"center"}), 80); return; }
   const b = e.target.closest("[data-fat]"); if (!b) return;
   const [id, ini, fim] = b.dataset.fat.split("|");
-  lf.mode="gastos"; lf.per="custom"; lf.de=ini; lf.ate=fim; lf.pay=id; lf.cats.clear(); lf.q="";
+  lf.mode="gastos"; lf.per="custom"; lf.de=ini; lf.ate=fim; lf.pay=id; lf.cats.clear(); lf.q=""; lf.fat=true;
   $("#lq").value=""; $("#lDe").value=ini; $("#lAte").value=fim;
   go("lista");
 });
@@ -1276,6 +1277,8 @@ function renderLista(al){
   $$("#lPer .chip").forEach(b=>b.classList.toggle("on", b.dataset.per===lf.per));
   $("#lRange").classList.toggle("on", lf.per==="custom");
   $("#lRangeHint").style.display = lf.per==="custom" ? "block" : "none";
+  $("#lRangeHint").textContent = lf.fat ? "Período da fatura: conta o que já foi lançado até hoje e as parcelas. Assinaturas futuras só entram no dia da cobrança."
+    : "Dica: use as datas de fechamento da fatura para conferir com o extrato do cartão. Parcelas contam na data de cada parcela.";
   $$("#lMode button").forEach(b=>b.classList.toggle("on", b.dataset.lm===lf.mode));
   $("#lFilters").style.display = lf.mode==="gastos" ? "block" : "none";
   $("#lqx").style.display = lf.q ? "block" : "none";
@@ -1285,7 +1288,7 @@ function renderLista(al){
   const [a,b] = perRange();
   let d1 = lf.de || "0000-01-01", d2 = lf.ate || todayISO(); if (d1 > d2) [d1,d2] = [d2,d1];
   const hojeL = todayISO();
-  const inDay = x => lf.per==="custom" ? (x.d >= d1 && x.d <= d2) : x.d <= hojeL;
+  const inDay = x => lf.per==="custom" ? (x.d >= d1 && x.d <= d2 && (!lf.fat || x.d <= hojeL || x.n > 1)) : x.d <= hojeL;
   const items = al.filter(x => { const t = x.y*12+x.m; return t>=a && t<=b && inDay(x) && matchQ(x.e) && matchPC(x.e); });
   const tot = sum(items), by = p => sum(items.filter(x=>x.e.pag===p));
   const nMeses = new Set(items.map(x=>x.y*12+x.m)).size;
@@ -1343,11 +1346,11 @@ let lqT=null;
 $("#lq").addEventListener("input", e => { lf.q = e.target.value.trim(); clearTimeout(lqT); lqT = setTimeout(render, 150); });
 $("#lqx").addEventListener("click", () => { $("#lq").value=""; lf.q=""; render(); });
 $("#lMode").addEventListener("click", e => { const b=e.target.closest("[data-lm]"); if(!b) return; lf.mode=b.dataset.lm; render(); });
-$("#lPer").addEventListener("click", e => { const b=e.target.closest("[data-per]"); if(!b) return; lf.per=b.dataset.per;
+$("#lPer").addEventListener("click", e => { const b=e.target.closest("[data-per]"); if(!b) return; lf.per=b.dataset.per; lf.fat=false;
   if (lf.per==="custom" && !lf.de){ const d=new Date(now.getTime()-30*864e5); lf.de=new Date(d.getTime()-d.getTimezoneOffset()*6e4).toISOString().slice(0,10); lf.ate=todayISO(); $("#lDe").value=lf.de; $("#lAte").value=lf.ate; }
   render(); });
-$("#lDe").addEventListener("change", e => { lf.de=e.target.value; render(); });
-$("#lAte").addEventListener("change", e => { lf.ate=e.target.value; render(); });
+$("#lDe").addEventListener("change", e => { lf.de=e.target.value; lf.fat=false; render(); });
+$("#lAte").addEventListener("change", e => { lf.ate=e.target.value; lf.fat=false; render(); });
 $("#lPay").addEventListener("click", e => { const b=e.target.closest("[data-lpay]"); if(!b) return; lf.pay=b.dataset.lpay; render(); });
 $("#lBox").addEventListener("click", e => { const b=e.target.closest("[data-lbox]"); if(!b) return; lf.box=b.dataset.lbox; render(); });
 $("#lCat").addEventListener("click", e => { const b=e.target.closest("[data-lcat]"); if(!b) return; const k=b.dataset.lcat;
