@@ -1018,7 +1018,8 @@ function renderCharts(al){
   if (yCardF!=="all" && !PAY_ORDER.includes(yCardF)) yCardF = "all";
   $("#yCardFilter").innerHTML = [["all","Todos",null],...PAY_ORDER.map(p=>[p,PAY[p].n,PAY[p].c])].map(([k,n,c]) =>
     `<button class="chip ${yCardF===k?'on':''}" data-f="${k}">${c?`<span class="dot" style="background:${c}"></span>`:''}${esc(n)}</button>`).join("");
-  const yi = al.filter(a=>a.y===gY && (yCardF==="all" || a.e.pag===yCardF));
+  // only what was actually spent up to today (planned subscriptions/installments don't count yet)
+  const yi = al.filter(a=>a.y===gY && a.d <= hoje && (yCardF==="all" || a.e.pag===yCardF));
   renderCatBars($("#yCats"), yi);
   renderCatMonthly(months, hoje, isCur, barOpts.hl);
   // anual
