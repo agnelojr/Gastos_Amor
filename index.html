@@ -379,6 +379,7 @@ textarea.csv{width:100%;height:120px;border-radius:12px;border:1px solid var(--l
     <div class="card">
       <div class="hscroll" id="yCardFilter" style="margin-bottom:4px"></div>
       <div id="yCats"></div>
+      <div class="note" id="noteYCats" style="margin:8px 0 0"></div>
     </div>
     <h2>Categorias mês a mês</h2>
     <div class="card">
@@ -1021,6 +1022,8 @@ function renderCharts(al){
   // only what was actually spent up to today (planned subscriptions/installments don't count yet)
   const yi = al.filter(a=>a.y===gY && a.d <= hoje && (yCardF==="all" || a.e.pag===yCardF));
   renderCatBars($("#yCats"), yi);
+  $("#noteYCats").textContent = isCur ? `Valores até a data de hoje (${hoje.split("-").reverse().join("/")}). Assinaturas e parcelas futuras ainda não entram.`
+    : isFut ? "" : `Ano completo de ${gY}.`;
   renderCatMonthly(months, hoje, isCur, barOpts.hl);
   // anual
   const years = [...new Set(al.map(a=>a.y))].sort();
