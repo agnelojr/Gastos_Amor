@@ -350,6 +350,9 @@ html{background:var(--hdr0) !important}
 .btn.ghost{border-radius:18px !important}
 .cc .bar{width:6px !important}
 h2{color:var(--accent) !important;opacity:.85}
+.catrow.go{cursor:pointer;-webkit-tap-highlight-color:transparent;border-radius:6px}
+.catrow.go:active{background:var(--surface-2)}
+.catrow .chev{font-style:normal;color:var(--text-3);margin-left:6px;font-weight:400}
 </style>
 </head>
 <body>
@@ -429,7 +432,7 @@ h2{color:var(--accent) !important;opacity:.85}
     <h2 id="boxTitle">Caixinhas · saldo hoje</h2>
     <div class="boxes" id="mBoxes"></div>
 
-    <h2>Por categoria</h2>
+    <h2>Por categoria <span style="text-transform:none;letter-spacing:0;font-weight:400">· toque para ver os itens</span></h2>
     <div class="card" id="mCats"></div>
     <div class="note" id="noteCmp" style="margin:6px 6px 0"></div>
 
@@ -899,7 +902,7 @@ function renderMonth(al, il){
   const dia = now.getDate(), prevLim = `${pm[0]}-${String(pm[1]+1).padStart(2,"0")}-${String(Math.min(dia, new Date(pm[0],pm[1]+1,0).getDate())).padStart(2,"0")}`;
   const cmpCur = isNowM ? f.filter(a => a.d <= hojeC) : f, cmpPrev = isNowM ? prevAll.filter(a => a.d <= prevLim) : prevAll;
   // no badges at all when the previous month has nothing yet (e.g. the first month using the app)
-  renderCatBars($("#mCats"), f, {lim:true, cmp: prevAll.length ? {cur:cmpCur, prev:cmpPrev} : null});
+  renderCatBars($("#mCats"), f, {go:true, lim:true, cmp: prevAll.length ? {cur:cmpCur, prev:cmpPrev} : null});
   $("#noteCmp").textContent = prevAll.length ? (isNowM ? `▲▼ comparado com ${MESES[pm[1]]} até o dia ${dia}, para comparar o mesmo período.` : `▲▼ comparado com ${MESES[pm[1]]}.`) : "";
   renderFaturas(allocations());
   renderRec(items);
@@ -1104,16 +1107,17 @@ function renderCatBars(el, items, opts={}){
     if (pc === 0) return `<span class="cmp eq">= 0%</span>`;
     return `<span class="cmp ${pc>0?'up':'down'}" title="antes: ${brl(b)}">${pc>0?'▲':'▼'} ${Math.abs(pc)}%</span>`;
   };
+  const goA = id => opts.go ? ` data-catgo="${esc(id)}" role="button"` : "";
   const html = rows.map(([id,v]) => { const c = catById(id);
     const L = opts.lim && c.lim > 0 ? c.lim : 0;
-    if (!L) return `<div class="catrow"><div class="nm"><span>${c.e}</span>${esc(c.n)}${cmpOf(id)}</div>
-      <div class="vl num">${brl(v)}<span class="pc">${Math.round(v/tot*100)}%</span></div>
+    if (!L) return `<div class="catrow${opts.go?" go":""}"${goA(id)}><div class="nm"><span>${c.e}</span>${esc(c.n)}${cmpOf(id)}</div>
+      <div class="vl num">${brl(v)}<span class="pc">${Math.round(v/tot*100)}%</span>${opts.go?"<i class=\"chev\">›</i>":""}</div>
       <div class="track"><div class="fill" style="width:${Math.max(2,v/max*100)}%;background:${catColor(c)}"></div></div></div>`;
     const pct = Math.round(v/L*100), cls = v > L ? "over" : pct >= 80 ? "warn" : "";
     const txt = v > L ? `🚨 Passou ${brl(v-L)} do limite de ${brl(L)}` : pct >= 80 ? `⚠️ ${pct}% do limite · restam ${brl(L-v)}` : `${pct}% do limite de ${brl(L)} · restam ${brl(L-v)}`;
     if (cls) alerts.push({c, pct, over: v > L});
-    return `<div class="catrow"><div class="nm"><span>${c.e}</span>${esc(c.n)}${cmpOf(id)}</div>
-      <div class="vl num">${brl(v)}<span class="pc">de ${brl(L)}</span></div>
+    return `<div class="catrow${opts.go?" go":""}"${goA(id)}><div class="nm"><span>${c.e}</span>${esc(c.n)}${cmpOf(id)}</div>
+      <div class="vl num">${brl(v)}<span class="pc">de ${brl(L)}</span>${opts.go?"<i class=\"chev\">›</i>":""}</div>
       <div class="track"><div class="fill" style="width:${Math.max(2,Math.min(100,v/L*100))}%;background:${v>L?'var(--danger)':catColor(c)}"></div></div>
       <div class="lim ${cls}">${txt}</div></div>`;
   }).join("");
@@ -1606,6 +1610,12 @@ document.addEventListener("click", e => {
   const cf = e.target.closest("[data-clearf]"); if (cf){ payFilter = "all"; boxFilter = "all"; render(); return; }
   const bf = e.target.closest("[data-bf]"); if (bf){ const b = bf.dataset.bf; boxFilter = boxFilter===b ? "all" : b; render(); return; }
   const gb = e.target.closest("[data-goboxes]"); if (gb){ go("aj"); setTimeout(()=>{ $("#boxNew").scrollIntoView({behavior:"smooth",block:"center"}); $("#bnName").focus(); }, 80); return; }
+  const cg = e.target.closest("[data-catgo]"); if (cg){
+    const ym = `${curY}-${String(curM+1).padStart(2,"0")}`, ini = ym+"-01", fim = ym+"-"+String(new Date(curY,curM+1,0).getDate()).padStart(2,"0");
+    lf.mode="gastos"; lf.per="custom"; lf.de=ini; lf.ate=fim; lf.fat=false; lf.q=""; $("#lq").value="";
+    lf.pay = payFilter; lf.box = boxFilter; lf.cats.clear(); lf.cats.add(cg.dataset.catgo);
+    $("#lDe").value=ini; $("#lAte").value=fim; go("lista");
+    const lc=$("#lCat"), on=lc.querySelector(".chip.on"); if (on) lc.scrollLeft = on.offsetLeft - lc.offsetLeft - 16; return; }
   const ed = e.target.closest("[data-edit]"); if (ed){ openSheet(state.expenses.find(x=>x.id===ed.dataset.edit), "gasto", ed.dataset.ym); return; }
   const ie = e.target.closest("[data-iedit]"); if (ie){ const i = state.incomes.find(x=>x.id===ie.dataset.iedit); if (i) openSheet(i, i.de ? "transf" : "ent", ie.dataset.ym); return; }
   const cd = e.target.closest("[data-cdel]"); if (cd){ const i=+cd.dataset.cdel; const c=state.cats[i];
