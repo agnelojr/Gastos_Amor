@@ -242,6 +242,19 @@ h2{font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--text
 .adjacts button{color:var(--accent) !important}
 .adjacts button#maFrom{font-weight:700 !important}
 .adjacts button#maNo{color:var(--text-2) !important;font-weight:500 !important}
+.frow{padding:0 !important;gap:4px}
+.frow .fmain{flex:1;display:flex;align-items:center;justify-content:space-between;text-align:left;padding:9px 2px;min-width:0}
+.frow .fmain span{font-size:14px;color:var(--text-2)}.frow .fmain span small{display:block;font-size:12px;color:var(--text-3)}
+.frow .fmain span small i{font-style:normal;color:var(--accent)}
+.frow.atual .fmain span{color:var(--text);font-weight:600}
+.frow .fmain b{font-size:16px}.frow .fmain b::after{content:" ›";color:var(--text-3);font-weight:400}
+.frow b::after{content:none}
+.fedit{width:34px;height:34px;border-radius:50%;background:var(--surface-2);color:var(--text-2);font-size:15px;flex:none}
+.mfrow{display:flex;flex-direction:column;gap:8px;padding:0 16px 14px}
+#modalFat .box{max-width:330px}
+.mfrow label{flex:1;text-align:left;font-size:12px;color:var(--text-3);background:var(--surface-2);border-radius:10px;padding:8px 10px}
+.mfrow input{display:block;width:100%;border:0;background:none;outline:none;font-size:15px;color:var(--text);margin-top:2px}
+.adjacts{grid-template-columns:1fr !important}
 .err{color:var(--danger);font-size:14px;text-align:center;min-height:18px;margin-top:8px}
 
 /* settings */
@@ -559,6 +572,13 @@ textarea.csv{width:100%;height:120px;border-radius:12px;border:1px solid var(--l
     <button id="mrNo">Cancelar</button>
   </div>
   <p class="faint" style="font-size:12px;padding:0 16px 12px;margin:0">“Esta e as próximas” mantém os meses anteriores no seu controle.</p></div></div>
+<div class="modal" id="modalFat"><div class="box"><p id="mfText"></p>
+  <div class="mfrow"><label>Começa em<input type="date" id="mfIni"></label><label>Fecha em<input type="date" id="mfFech"></label><label>Vence em<input type="date" id="mfVenc"></label></div>
+  <div class="acts recacts adjacts">
+    <button id="mfSave" style="font-weight:700 !important">Salvar datas</button>
+    <button id="mfReset">Voltar ao dia padrão</button>
+    <button id="mfNo" style="color:var(--text-2) !important">Cancelar</button>
+  </div></div></div>
 <div class="modal" id="modal"><div class="box"><p id="mText"></p><div class="acts"><button id="mNo">Cancelar</button><button id="mYes">Confirmar</button></div></div></div>
 <div class="toast" id="toast"></div>
 
@@ -852,13 +872,42 @@ const addM = (y,m,d) => { const t = y*12+m+d; return [Math.floor(t/12), ((t%12)+
 const isoD = (y,m,d) => `${y}-${pad2(m+1)}-${pad2(Math.min(d, diasMes(y,m)))}`;
 const brD = iso => iso.slice(8)+"/"+iso.slice(5,7);
 function nextDay(iso){ const [y,m,d] = iso.split("-").map(Number); const t = new Date(y,m-1,d+1); return `${t.getFullYear()}-${pad2(t.getMonth()+1)}-${pad2(t.getDate())}`; }
-// an invoice is identified by the month it closes in
+// an invoice is identified by the month it normally closes in; banks like Itaú move the
+// closing date from month to month, so each invoice can have its own dates (k.ovr["YYYY-MM"])
+const ymKeyF = (y,m) => `${y}-${pad2(m+1)}`;
+function fechaEm(k, y, m){ const o = k.ovr && k.ovr[ymKeyF(y,m)]; return (o && o.f) || isoD(y,m,k.fech); }
 function fatura(k, y, m){
   const [py,pm] = addM(y,m,-1);
-  const ini = nextDay(isoD(py,pm,k.fech)), fim = isoD(y,m,k.fech);
+  const ini = nextDay(fechaEm(k,py,pm)), fim = fechaEm(k,y,m);
+  const o = k.ovr && k.ovr[ymKeyF(y,m)];
   const [vy,vm] = k.venc > k.fech ? [y,m] : addM(y,m,1);
-  return {ini, fim, venc: isoD(vy,vm,k.venc)};
+  return {y, m, ini, fim, venc: (o && o.v) || isoD(vy,vm,k.venc), ajustada: !!(o && (o.f || o.v))};
 }
+async function salvarFat(reset){
+  const fe = fatEdit; fatEdit = null; $("#modalFat").classList.remove("on"); if (!fe) return;
+  const k = fe.k; k.ovr = k.ovr || {};
+  if (reset) delete k.ovr[fe.ym];
+  else {
+    const ini = $("#mfIni").value, f = $("#mfFech").value, v = $("#mfVenc").value;
+    if (!ini || !f || !v){ toast("Preencha as três datas"); return; }
+    if (f < ini){ toast("O fechamento não pode ser antes do início"); return; }
+    if (v < f){ toast("O vencimento não pode ser antes do fechamento"); return; }
+    k.ovr[fe.ym] = {f, v};
+    if (ini !== fe.ini0){
+      // the start of this invoice is the day after the previous one closed
+      const [y,m] = fe.ym.split("-").map(Number), [py,pm] = addM(y,m-1,-1), pk = ymKeyF(py,pm);
+      const [a,b,c] = ini.split("-").map(Number), d = new Date(a,b-1,c-1);
+      const prevF = `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;
+      k.ovr[pk] = {...(k.ovr[pk]||{}), f: prevF, v: (k.ovr[pk]&&k.ovr[pk].v) || fatura(k,py,pm).venc};
+    }
+  }
+  if (!Object.keys(k.ovr).length) delete k.ovr;
+  await saveCards(); toast(reset ? "Datas voltaram ao padrão" : "Datas da fatura ajustadas");
+}
+$("#mfSave").addEventListener("click", ()=>salvarFat(false));
+$("#mfReset").addEventListener("click", ()=>salvarFat(true));
+$("#mfNo").addEventListener("click", ()=>{ fatEdit=null; $("#modalFat").classList.remove("on"); });
+
 function renderFaturas(al){
   const el = $("#mFat"); if (!el) return;
   const hoje = todayISO();
@@ -871,17 +920,28 @@ function renderFaturas(al){
   }
   el.innerHTML = cfg.map(k => {
     let [y,m] = [now.getFullYear(), now.getMonth()];
-    if (hoje > isoD(y,m,k.fech)) [y,m] = addM(y,m,1);
+    if (hoje <= fatura(k,...addM(y,m,-1)).fim) [y,m] = addM(y,m,-1);
+    else if (hoje > fatura(k,y,m).fim) [y,m] = addM(y,m,1);
     const atual = fatura(k,y,m), ant = fatura(k,...addM(y,m,-1)), prox = fatura(k,...addM(y,m,1));
     const tot = f => sum(al.filter(a => a.e.pag===k.id && a.d >= f.ini && a.d <= f.fim));
-    const row = (f, nome, sub, cls="") => `<button class="frow ${cls}" data-fat="${esc(k.id)}|${f.ini}|${f.fim}"><span>${nome}<small>${sub}</small></span><b class="num">${brl(tot(f))}</b></button>`;
+    const row = (f, nome, sub, cls="") => `<div class="frow ${cls}"><button class="fmain" data-fat="${esc(k.id)}|${f.ini}|${f.fim}"><span>${nome}<small>${sub}${f.ajustada?' · <i>datas ajustadas</i>':''}</small></span><b class="num">${brl(tot(f))}</b></button><button class="fedit" data-fatedit="${esc(k.id)}|${ymKeyF(f.y,f.m)}" aria-label="Ajustar datas desta fatura">✎</button></div>`;
     return `<div class="card fat"><div class="fh"><span class="dot" style="background:${PAY[k.id].c}"></span><b>Fatura ${esc(k.n)}</b><span class="faint">fecha dia ${k.fech} · vence dia ${k.venc}</span></div>` +
       (hoje <= ant.venc ? row(ant, "Fechada · a pagar", `${brD(ant.ini)} a ${brD(ant.fim)} · vence ${brD(ant.venc)}`) : "") +
       row(atual, "Atual (aberta)", `${brD(atual.ini)} a ${brD(atual.fim)} · vence ${brD(atual.venc)}`, "atual") +
       row(prox, "Próxima", `${brD(prox.ini)} a ${brD(prox.fim)} · já lançado`) + `</div>`;
   }).join("");
 }
+let fatEdit = null;
 document.addEventListener("click", e => {
+  const fe = e.target.closest("[data-fatedit]");
+  if (fe){ const [id, ym] = fe.dataset.fatedit.split("|"); const k = state.cards.find(x=>x.id===id); if (!k) return;
+    const [y,m] = ym.split("-").map(Number), f = fatura(k, y, m-1);
+    fatEdit = {k, ym};
+    $("#mfText").innerHTML = `<b>Fatura ${esc(k.n)}</b> de ${MESES[m-1]}<br><span class="faint" style="font-size:13px">Copie as datas que aparecem no app do banco.</span>`;
+    $("#mfIni").value = f.ini; $("#mfFech").value = f.fim; $("#mfVenc").value = f.venc;
+    fatEdit.ini0 = f.ini;
+    $("#mfReset").style.display = f.ajustada ? "block" : "none";
+    $("#modalFat").classList.add("on"); return; }
   const g = e.target.closest("[data-goaj]"); if (g){ go("aj"); setTimeout(()=>$("#cardEdit").scrollIntoView({behavior:"smooth",block:"center"}), 80); return; }
   const b = e.target.closest("[data-fat]"); if (!b) return;
   const [id, ini, fim] = b.dataset.fat.split("|");
