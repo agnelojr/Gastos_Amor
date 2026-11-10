@@ -460,7 +460,7 @@ h2{color:var(--accent) !important;opacity:.85}
       <div class="stat"><div class="k">Maior mês</div><div class="v num" id="yMax"></div><div class="s num" id="yMaxV"></div></div>
       <div class="stat"><div class="k">Menor mês</div><div class="v num" id="yMin"></div><div class="s num" id="yMinV"></div></div>
     </div>
-    <h2>Gastos mensais por cartão</h2>
+    <h2>Gastos mensais totais</h2>
     <div class="card">
       <div class="legend" id="lgMonth"></div>
       <div class="chart" id="chMonth"></div>
@@ -1321,7 +1321,12 @@ function renderCharts(al){
   const barOpts = {hl: gY===now.getFullYear()? now.getMonth() : -1, title:i=>`${MESES[i]} ${gY}`, fill:0.84, maxBar:22, segLabels:true, segSize:6.6};
   // 1) what was actually spent (up to today)
   const monthsReal = months.map(it => it.filter(a => a.d <= hoje));
-  stackedBars($("#chMonth"), mLabels, series(monthsReal), {...barOpts, aria:`Gastos mensais de ${gY} por cartão`});
+  // every payment form, plus anything paid with a form that was later removed from Ajustes
+  const serReal = series(monthsReal);
+  const orfaos = monthsReal.map(it => sum(it.filter(a => !PAY_ORDER.includes(a.e.pag))));
+  if (orfaos.some(v=>v>0)) serReal.push({key:"_rm", name:"Formas removidas", color:"#5b5f66", ink:"#fff", values:orfaos});
+  stackedBars($("#chMonth"), mLabels, serReal, {...barOpts, aria:`Gastos mensais totais de ${gY}`});
+  if (orfaos.some(v=>v>0)) $("#lgMonth .unit").insertAdjacentHTML("beforebegin", `<span><span class="dot" style="background:#5b5f66"></span>Formas removidas</span>`);
   $("#noteMonth").textContent = isCur ? `Só o que já foi gasto até ${hoje.split("-").reverse().join("/")}.` : "";
   // 2) fixed commitments: recurring + installments, including what's still to come
   const monthsFix = months.map(it => it.filter(a => a.rec || a.n > 1));
