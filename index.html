@@ -222,6 +222,26 @@ h2{font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--text
 .recacts{grid-template-columns:1fr !important}
 .recacts button{border-left:0 !important;border-top:1px solid var(--line);color:var(--danger) !important;font-weight:500 !important}
 .recacts button#mrNo{color:var(--accent) !important;font-weight:600 !important}
+.fat{margin-top:10px;padding:14px}
+.fat .fh{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.fat .fh b{font-size:16px}.fat .fh .faint{margin-left:auto;font-size:12px}
+.frow{display:flex;align-items:center;justify-content:space-between;width:100%;text-align:left;padding:9px 2px;border-top:1px solid var(--line)}
+.frow span{font-size:14px;color:var(--text-2)}.frow span small{display:block;font-size:12px;color:var(--text-3)}
+.frow b{font-size:16px}.frow b::after{content:" ›";color:var(--text-3);font-weight:400}
+.frow.atual span{color:var(--text);font-weight:600}
+.fathint{margin-top:10px;font-size:13px;color:var(--text-2);background:var(--surface);border-radius:14px;padding:12px 14px;box-shadow:var(--shadow);display:flex;gap:10px;align-items:center}
+.fathint button{margin-left:auto;flex:none}
+.fatrow{gap:6px;font-size:13px;color:var(--text-3);padding-top:4px !important}
+.fatrow input{width:44px !important;flex:none !important;text-align:center !important;background:var(--surface-2) !important;border-radius:8px;padding:5px 2px}
+.fatrow .liminp{width:110px !important;flex:none !important;text-align:right !important;background:var(--surface-2) !important;border-radius:8px;padding:5px 8px;font-size:14px !important}
+.catrow .lim{grid-column:1/3;font-size:12px;color:var(--text-3);margin-top:-1px}
+.catrow .lim.warn{color:#b26b00}.catrow .lim.over{color:var(--danger);font-weight:600}
+@media (prefers-color-scheme: dark){.catrow .lim.warn{color:#e3a33a}}
+.limalert{background:color-mix(in srgb,#eda100 16%,var(--surface));border-radius:12px;padding:10px 12px;font-size:14px;margin-bottom:8px;line-height:1.4}
+.limalert.over{background:color-mix(in srgb,var(--danger) 14%,var(--surface))}
+.adjacts button{color:var(--accent) !important}
+.adjacts button#maFrom{font-weight:700 !important}
+.adjacts button#maNo{color:var(--text-2) !important;font-weight:500 !important}
 .err{color:var(--danger);font-size:14px;text-align:center;min-height:18px;margin-top:8px}
 
 /* settings */
@@ -332,6 +352,7 @@ textarea.csv{width:100%;height:120px;border-radius:12px;border:1px solid var(--l
       <div class="inrow" id="mIn" style="display:none"></div>
     </div>
     <div class="cards" id="mCards"></div>
+    <div id="mFat"></div>
 
     <h2 id="boxTitle">Caixinhas · saldo hoje</h2>
     <div class="boxes" id="mBoxes"></div>
@@ -438,12 +459,14 @@ textarea.csv{width:100%;height:120px;border-radius:12px;border:1px solid var(--l
         <button class="tipocard" data-t="saque"><span>💵</span>Saque<small>dinheiro vivo</small></button>
       </div>
       <div class="row"><input id="cnName" placeholder="Nome (ex.: Nubank, Inter, Pix Itaú…)" style="text-align:left" autocomplete="off"></div>
+      <div class="row fatrow" id="cnFat">Fecha dia <input id="cnFech" type="number" inputmode="numeric" min="1" max="31" placeholder="—"> · vence dia <input id="cnVenc" type="number" inputmode="numeric" min="1" max="31" placeholder="—"> <span>(opcional)</span></div>
       <div class="swrow" id="cnColor"></div>
       <div class="row" style="border:0;padding-top:0"><button class="btn" id="cnAdd" style="margin:0">Adicionar</button></div>
     </div>
     <p class="note">Toque no selo do tipo (Crédito, Débito…) para trocar. Só o crédito aceita parcelas.</p>
     <h2>Categorias</h2>
     <div class="field" id="catEdit"></div>
+    <p class="note">Limite: quanto você quer gastar no máximo por mês naquela categoria (opcional). A aba Mês avisa a partir de 80%.</p>
     <div class="field"><div class="row">
       <input id="newCat" placeholder="Nova categoria…" style="text-align:left">
       <button class="link strong" id="addCat">Adicionar</button>
@@ -521,6 +544,13 @@ textarea.csv{width:100%;height:120px;border-radius:12px;border:1px solid var(--l
 </div>
 
 <div class="modal" id="modal2"><div class="box"><p id="m2Text"></p><div class="acts" style="grid-template-columns:1fr"><button id="m2Rep" style="color:var(--danger);font-weight:600">Substituir tudo</button><button id="m2Mer" style="border-left:0;border-top:1px solid var(--line);color:var(--accent);font-weight:600">Juntar com os atuais</button><button id="m2No" style="border-left:0;border-top:1px solid var(--line);color:var(--text-2);font-weight:400">Cancelar</button></div></div></div>
+<div class="modal" id="modalAdj"><div class="box"><p id="maText"></p>
+  <div class="acts recacts adjacts">
+    <button id="maFrom">A partir deste mês</button>
+    <button id="maAll">Em todos os meses (corrigir)</button>
+    <button id="maNo">Cancelar</button>
+  </div>
+  <p class="faint" style="font-size:12px;padding:0 16px 12px;margin:0">“A partir deste mês” mantém o valor antigo nos meses anteriores.</p></div></div>
 <div class="modal" id="modalRec"><div class="box"><p id="mrText"></p>
   <div class="acts recacts">
     <button id="mrOne">Só a deste mês</button>
@@ -752,7 +782,8 @@ function renderMonth(al, il){
 
   renderBoxes(al, il);
   const f = items.filter(a => (payFilter==="all" || a.e.pag===payFilter) && (boxFilter==="all" || a.e.box===boxFilter));
-  renderCatBars($("#mCats"), f);
+  renderCatBars($("#mCats"), f, {lim:true});
+  renderFaturas(allocations());
   renderRec(items);
   renderInc(boxFilter==="all" ? mi : mi.filter(x => x.i.box===boxFilter || x.i.de===boxFilter));
 
@@ -814,18 +845,74 @@ function renderRec(items){
     `<div class="rectot"><span>${rec.length} ativa${rec.length>1?'s':''}${PAY_ORDER.filter(p=>by(p)>0).map(p=>` · ${esc(PAY[p].n)} ${brl(by(p))}`).join("")}</span><b class="num" style="color:var(--text)">${brl(tot)}/mês</b></div></div>`;
 }
 
-function renderCatBars(el, items){
+/* ---------------- faturas dos cartões ---------------- */
+const pad2 = n => String(n).padStart(2,"0");
+const diasMes = (y,m) => new Date(y,m+1,0).getDate(); // m: 0-11
+const addM = (y,m,d) => { const t = y*12+m+d; return [Math.floor(t/12), ((t%12)+12)%12]; };
+const isoD = (y,m,d) => `${y}-${pad2(m+1)}-${pad2(Math.min(d, diasMes(y,m)))}`;
+const brD = iso => iso.slice(8)+"/"+iso.slice(5,7);
+function nextDay(iso){ const [y,m,d] = iso.split("-").map(Number); const t = new Date(y,m-1,d+1); return `${t.getFullYear()}-${pad2(t.getMonth()+1)}-${pad2(t.getDate())}`; }
+// an invoice is identified by the month it closes in
+function fatura(k, y, m){
+  const [py,pm] = addM(y,m,-1);
+  const ini = nextDay(isoD(py,pm,k.fech)), fim = isoD(y,m,k.fech);
+  const [vy,vm] = k.venc > k.fech ? [y,m] : addM(y,m,1);
+  return {ini, fim, venc: isoD(vy,vm,k.venc)};
+}
+function renderFaturas(al){
+  const el = $("#mFat"); if (!el) return;
+  const hoje = todayISO();
+  const isNow = curY===now.getFullYear() && curM===now.getMonth();
+  const creds = state.cards.filter(k=>k.t==="credito");
+  if (!isNow || !creds.length){ el.innerHTML = ""; return; }
+  const cfg = creds.filter(k=>k.fech && k.venc);
+  if (!cfg.length){
+    el.innerHTML = `<div class="fathint">💳 <span>Coloque o dia de fechamento e vencimento dos cartões para ver as faturas aqui.</span><button class="link strong" data-goaj>Ajustes</button></div>`; return;
+  }
+  el.innerHTML = cfg.map(k => {
+    let [y,m] = [now.getFullYear(), now.getMonth()];
+    if (hoje > isoD(y,m,k.fech)) [y,m] = addM(y,m,1);
+    const atual = fatura(k,y,m), ant = fatura(k,...addM(y,m,-1)), prox = fatura(k,...addM(y,m,1));
+    const tot = f => sum(al.filter(a => a.e.pag===k.id && a.d >= f.ini && a.d <= f.fim));
+    const row = (f, nome, sub, cls="") => `<button class="frow ${cls}" data-fat="${esc(k.id)}|${f.ini}|${f.fim}"><span>${nome}<small>${sub}</small></span><b class="num">${brl(tot(f))}</b></button>`;
+    return `<div class="card fat"><div class="fh"><span class="dot" style="background:${PAY[k.id].c}"></span><b>Fatura ${esc(k.n)}</b><span class="faint">fecha dia ${k.fech} · vence dia ${k.venc}</span></div>` +
+      (hoje <= ant.venc ? row(ant, "Fechada · a pagar", `${brD(ant.ini)} a ${brD(ant.fim)} · vence ${brD(ant.venc)}`) : "") +
+      row(atual, "Atual (aberta)", `${brD(atual.ini)} a ${brD(atual.fim)} · vence ${brD(atual.venc)}`, "atual") +
+      row(prox, "Próxima", `${brD(prox.ini)} a ${brD(prox.fim)} · já lançado`) + `</div>`;
+  }).join("");
+}
+document.addEventListener("click", e => {
+  const g = e.target.closest("[data-goaj]"); if (g){ go("aj"); setTimeout(()=>$("#cardEdit").scrollIntoView({behavior:"smooth",block:"center"}), 80); return; }
+  const b = e.target.closest("[data-fat]"); if (!b) return;
+  const [id, ini, fim] = b.dataset.fat.split("|");
+  lf.mode="gastos"; lf.per="custom"; lf.de=ini; lf.ate=fim; lf.pay=id; lf.cats.clear(); lf.q="";
+  $("#lq").value=""; $("#lDe").value=ini; $("#lAte").value=fim;
+  go("lista");
+});
+
+function renderCatBars(el, items, opts={}){
   const tot = sum(items);
   if (!items.length){ el.innerHTML = `<div class="empty" style="padding:18px"><div>Nenhum gasto neste período</div></div>`; return; }
   const g = {};
   items.forEach(a => { g[a.e.cat] = (g[a.e.cat]||0) + a.val; });
   const rows = Object.entries(g).sort((a,b)=>b[1]-a[1]);
   const max = rows[0][1];
-  el.innerHTML = rows.map(([id,v]) => { const c = catById(id);
-    return `<div class="catrow"><div class="nm"><span>${c.e}</span>${esc(c.n)}</div>
+  const alerts = [];
+  const html = rows.map(([id,v]) => { const c = catById(id);
+    const L = opts.lim && c.lim > 0 ? c.lim : 0;
+    if (!L) return `<div class="catrow"><div class="nm"><span>${c.e}</span>${esc(c.n)}</div>
       <div class="vl num">${brl(v)}<span class="pc">${Math.round(v/tot*100)}%</span></div>
       <div class="track"><div class="fill" style="width:${Math.max(2,v/max*100)}%;background:${catColor(c)}"></div></div></div>`;
+    const pct = Math.round(v/L*100), cls = v > L ? "over" : pct >= 80 ? "warn" : "";
+    const txt = v > L ? `🚨 Passou ${brl(v-L)} do limite de ${brl(L)}` : pct >= 80 ? `⚠️ ${pct}% do limite · restam ${brl(L-v)}` : `${pct}% do limite de ${brl(L)} · restam ${brl(L-v)}`;
+    if (cls) alerts.push({c, pct, over: v > L});
+    return `<div class="catrow"><div class="nm"><span>${c.e}</span>${esc(c.n)}</div>
+      <div class="vl num">${brl(v)}<span class="pc">de ${brl(L)}</span></div>
+      <div class="track"><div class="fill" style="width:${Math.max(2,Math.min(100,v/L*100))}%;background:${v>L?'var(--danger)':catColor(c)}"></div></div>
+      <div class="lim ${cls}">${txt}</div></div>`;
   }).join("");
+  const banner = alerts.length ? `<div class="limalert ${alerts.some(a=>a.over)?'over':''}">${alerts.map(a => a.over ? `🚨 <b>${esc(a.c.n)}</b> passou do limite (${a.pct}%)` : `⚠️ <b>${esc(a.c.n)}</b> já usou ${a.pct}% do limite`).join("<br>")}</div>` : "";
+  el.innerHTML = banner + html;
 }
 
 function renderList(el, items, grouped){
@@ -1165,9 +1252,10 @@ function renderCards(){
     <button class="dotbtn" data-kcol="${i}" style="background:var(--${k.c||'outro'})" aria-label="Trocar cor"></button>
     <input data-kname="${i}" value="${esc(k.n)}" style="text-align:left">
     <button class="tbtn" data-ktipo="${i}">${TIPO[k.t]}</button>
-    <button class="del" data-kdel="${i}">Remover</button></div>`).join("")
+    <button class="del" data-kdel="${i}">Remover</button></div>` + (k.t==="credito" ? `<div class="row fatrow">Fatura: fecha dia <input data-kfech="${i}" type="number" inputmode="numeric" min="1" max="31" value="${k.fech||""}" placeholder="—"> · vence dia <input data-kvenc="${i}" type="number" inputmode="numeric" min="1" max="31" value="${k.venc||""}" placeholder="—"></div>` : "")).join("")
     : `<div class="row faint" style="font-size:14px">Nenhuma forma de pagamento cadastrada. Adicione abaixo.</div>`;
   $$("#cnTipo .tipocard").forEach(b=>b.classList.toggle("on", b.dataset.t===cnTipo));
+  $("#cnFat").style.display = cnTipo==="credito" ? "flex" : "none";
   if (!cnSlot){ const used = state.cards.map(k=>k.c); cnSlot = CARD_SLOTS.find(x=>!used.includes(x)) || "s1"; }
   $("#cnColor").innerHTML = CARD_SLOTS.map(x=>`<button class="swatch ${x===cnSlot?'on':''}" data-sl="${x}" style="background:var(--${x})" aria-label="Cor"></button>`).join("");
 }
@@ -1179,7 +1267,10 @@ $("#cnAdd").addEventListener("click", async () => {
   // boleto / saque / pix may go without a name: use the type
   const nome = n || (cnTipo==="credito"||cnTipo==="debito" ? "" : TIPO[cnTipo]);
   if (!nome){ toast("Digite o nome do cartão"); $("#cnName").focus(); return; }
-  state.cards.push({id:"k"+Date.now().toString(36), n:nome, t:cnTipo, c:cnSlot});
+  const novo = {id:"k"+Date.now().toString(36), n:nome, t:cnTipo, c:cnSlot};
+  if (cnTipo==="credito"){ const f=+$("#cnFech").value, v=+$("#cnVenc").value; if (f>=1&&f<=31) novo.fech=f; if (v>=1&&v<=31) novo.venc=v; }
+  $("#cnFech").value=""; $("#cnVenc").value="";
+  state.cards.push(novo);
   $("#cnName").value=""; cnSlot=null; cnTipo="credito";
   await saveCards(); toast(`“${nome}” adicionado`);
 });
@@ -1194,6 +1285,13 @@ $("#cardEdit").addEventListener("click", async e => {
       async () => { state.cards.splice(i,1); await saveCards(); toast("Removido"); }); }
 });
 let cardT=null;
+$("#cardEdit").addEventListener("change", async e => {
+  const f = e.target.dataset.kfech, v = e.target.dataset.kvenc; if (f===undefined && v===undefined) return;
+  const k = state.cards[+(f ?? v)], n = parseInt(e.target.value,10);
+  const val = n>=1 && n<=31 ? n : undefined;
+  if (f!==undefined){ if (val) k.fech = val; else delete k.fech; } else { if (val) k.venc = val; else delete k.venc; }
+  await saveCards(); toast("Fatura atualizada");
+});
 $("#cardEdit").addEventListener("input", e => { const i = e.target.dataset.kname; if (i===undefined) return;
   const v = e.target.value.trim(); if (v) state.cards[i].n = v;
   clearTimeout(cardT); cardT = setTimeout(()=>{ saveCards().catch(()=>{}); }, 700); });
@@ -1247,7 +1345,8 @@ function renderSettings(){
     <span class="dot" style="background:${catColor(c)};width:12px;height:12px"></span>
     <input data-cemoji="${i}" value="${esc(c.e)}" style="width:34px;flex:none;text-align:center">
     <input data-cname="${i}" value="${esc(c.n)}">
-    <button class="del" data-cdel="${i}">Remover</button></div>`).join("");
+    <button class="del" data-cdel="${i}">Remover</button></div>
+    <div class="row fatrow">Limite por mês: R$ <input class="liminp num" data-clim="${i}" inputmode="decimal" placeholder="sem limite" value="${c.lim ? (c.lim/100).toLocaleString("pt-BR") : ""}"></div>`).join("");
   $("#csvBox").value = toTSV();
   bkInfo();
 }
@@ -1306,6 +1405,13 @@ document.addEventListener("click", e => {
 $("#yCardFilter").addEventListener("click", e => { const b = e.target.closest("[data-f]"); if (!b) return; yCardF = b.dataset.f; render(); });
 
 let catTimer=null;
+$("#catEdit").addEventListener("change", async e => {
+  const i = e.target.dataset.clim; if (i===undefined) return;
+  const t = e.target.value.replace(/[^\d,\.]/g,"").replace(/\./g,"").replace(",",".");
+  const v = Math.round(parseFloat(t||"0")*100);
+  if (v > 0) state.cats[i].lim = v; else delete state.cats[i].lim;
+  await store.saveCats(); toast(v>0 ? `Limite de ${state.cats[i].n}: ${brl(v)}` : "Limite removido");
+});
 $("#catEdit").addEventListener("input", e => {
   const i = e.target.dataset.cname ?? e.target.dataset.cemoji; if (i===undefined) return;
   if (e.target.dataset.cname!==undefined) state.cats[i].n = e.target.value.trim() || state.cats[i].n;
@@ -1474,11 +1580,42 @@ $("#sSave").addEventListener("click", async () => {
     rec = { ...base, box: fTo }; kind = "inc";
     if (fKind==="transf") rec.de = fFrom;
   }
+  // price change on a subscription, opened from a month after it started: ask from when it applies
+  if (editing && editing.rec && fRec && rec.valor !== editing.valor && editYM > editing.data.slice(0,7)){
+    pendReaj = {e: rec, kind}; abrirReaj(editing, rec.valor); return;
+  }
   closeSheet();
-  const [Y,M] = data.split("-").map(Number); curY=Y; curM=M-1;
+  if (!(editing && editing.rec)){ const [Y,M] = data.split("-").map(Number); curY=Y; curM=M-1; }
   const msg = {gasto:["Gasto salvo","Gasto atualizado"], ent:["Entrada salva","Entrada atualizada"], transf:["Transferência salva","Transferência atualizada"]}[fKind][editing?1:0];
   try{ await store.put(rec, kind); toast(msg); } catch(e){ toast("Não foi possível salvar"); }
 });
+/* ---------------- reajuste de assinatura ---------------- */
+let pendReaj = null;
+function abrirReaj(old, novo){
+  $("#maText").innerHTML = `<b>${esc(old.desc||(pendReaj?.kind==="inc"?"Entrada":"Assinatura"))}</b>: de ${brl(old.valor)} para <b>${brl(novo)}</b>. A partir de quando vale o novo valor?`;
+  $("#maFrom").textContent = `A partir de ${ymLabel(editYM)}`;
+  $("#modalAdj").classList.add("on");
+}
+async function aplicarReaj(desdeJa){
+  $("#modalAdj").classList.remove("on");
+  const pr = pendReaj; pendReaj = null; if (!pr || !editing) return;
+  const old = editing, e = pr.e, ym = editYM, kind = pr.kind;
+  closeSheet();
+  const put = (x) => kind ? store.put(x, kind) : store.put(x);
+  try{
+    if (!desdeJa){ await put(e); toast("Valor corrigido em todos os meses"); return; }
+    // keep history: the old series ends the month before; a new one starts this month
+    const antigo = {...old, fim: ymPrev(ym)};
+    const sk = (old.skip||[]); antigo.skip = sk.filter(x=>x<ym); if (!antigo.skip.length) delete antigo.skip;
+    const novo = {...e, id: uid(), data: `${ym}-${e.data.slice(8)}`, criado: Date.now()};
+    const sk2 = (e.skip||[]).filter(x=>x>=ym); if (sk2.length) novo.skip = sk2; else delete novo.skip;
+    await put(antigo); await put(novo);
+    toast(`Novo valor a partir de ${ymLabel(ym)}`);
+  }catch(err){ toast("Não foi possível salvar"); }
+}
+$("#maFrom").addEventListener("click", ()=>aplicarReaj(true));
+$("#maAll").addEventListener("click", ()=>aplicarReaj(false));
+$("#maNo").addEventListener("click", ()=>{ pendReaj=null; $("#modalAdj").classList.remove("on"); });
 const ymLabel = ym => { const [y,m] = ym.split("-").map(Number); return `${MESES[m-1]} de ${y}`; };
 const ymPrev = ym => { let [y,m] = ym.split("-").map(Number); m -= 1; if (m<1){ m=12; y--; } return `${y}-${String(m).padStart(2,"0")}`; };
 async function delRec(mode){
