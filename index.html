@@ -6,7 +6,10 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Gastos">
-<meta name="theme-color" content="#1f66bd">
+<meta name="theme-color" content="#b29ffb">
+<meta name="color-scheme" content="light">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800;900&display=swap">
 <title>Controle de Gastos</title>
 <link rel="apple-touch-icon" href="icon-180.png">
 <link rel="manifest" href="manifest.webmanifest">
@@ -324,6 +327,29 @@ textarea.csv{width:100%;height:120px;border-radius:12px;border:1px solid var(--l
 .inrow{display:flex;gap:18px;flex-wrap:wrap;margin-top:10px;padding-top:10px;border-top:1px solid var(--line);font-size:14px;color:var(--text-2)}
 .inrow b{font-weight:650}
 #fKind{margin:4px 0 2px}
+
+/* ===== Tema Lavanda 💜 ===== */
+:root{--bg:#f7f4ff;--surface:#ffffff;--surface-2:#ece6ff;--line:#e3dcfb;--text:#352d52;--text-2:#62598a;--text-3:#9a91c0;--accent:#7f5ff0;
+  --s1:#7aa7f7;--s2:#ff9f86;--s3:#5ccfb0;--s4:#f4c55a;--s5:#ee93c6;--s6:#93cf72;--s7:#a68cf5;--s8:#ff7a95;--outro:#b9b2d6;
+  --hdr:linear-gradient(135deg,#c4b2ff 0%,#8a6cf2 100%);--hdr0:#b29ffb;--glow:rgba(127,95,240,.35);
+  --shadow:0 2px 4px rgba(127,95,240,.06),0 8px 22px rgba(127,95,240,.10)}
+/* always the light lavender look, even when the iPhone is in dark mode */
+:root{color-scheme:light}
+@media (prefers-color-scheme: dark){ :root{color-scheme:light} .down{color:#1a8f5f !important} .catrow .lim.warn{color:#b26b00 !important} .cmp.down{color:#1a8f5f !important} .pos{color:#1a8f5f !important} }
+html,body,button,input,select,textarea{font-family:'Nunito',ui-rounded,-apple-system,BlinkMacSystemFont,sans-serif !important}
+.card,.list,.cc,.stat,.field,.fat,.limalert,.bkban{border-radius:24px !important}
+.chip,.seg,.seg button{border-radius:999px !important}
+h1{font-weight:900 !important;letter-spacing:-.01em;position:relative;overflow:hidden;border-radius:0 0 30px 30px !important;background:var(--hdr) !important}
+h1::before{content:"";position:absolute;width:150px;height:150px;border-radius:50%;background:rgba(255,255,255,.18);right:-40px;top:-30px;pointer-events:none}
+h1::after{content:"💜🫧";position:absolute;right:22px;bottom:16px;font-size:26px;letter-spacing:6px;pointer-events:none}
+.statusbg{background:var(--hdr0) !important}
+html{background:var(--hdr0) !important}
+.fab{background:var(--hdr) !important;box-shadow:0 8px 20px var(--glow) !important;border:4px solid var(--bg)}
+.tab.on{color:var(--accent) !important}
+.btn:not(.ghost){border-radius:18px !important;background:var(--hdr) !important}
+.btn.ghost{border-radius:18px !important}
+.cc .bar{width:6px !important}
+h2{color:var(--accent) !important;opacity:.85}
 </style>
 </head>
 <body>
