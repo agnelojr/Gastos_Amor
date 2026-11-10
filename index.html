@@ -265,6 +265,13 @@ h2{font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--text
 .mcrow label{font-size:11px;color:var(--text-3);background:var(--surface-2);border-radius:9px;padding:6px 8px}
 .mcrow input{display:block;width:100%;border:0;background:none;outline:none;font-size:14px;color:var(--text);margin-top:1px}
 .mcrow.atual{background:color-mix(in srgb,var(--accent) 6%,transparent);border-radius:10px}
+.fatcfg{gap:12px !important;padding-top:10px !important;padding-bottom:10px !important}
+.fatcfg label{flex:1;width:auto !important;display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:14px;color:var(--text-2);white-space:nowrap}
+.fatcfg input{width:56px !important;flex:none !important;text-align:center !important;background:var(--surface-2) !important;border-radius:9px;padding:6px 2px;font-size:16px}
+.fatcal{width:100%;display:flex !important;align-items:center;gap:8px;text-align:left;padding-top:10px !important;padding-bottom:10px !important}
+.fatcal span{color:var(--accent);font-size:15px;font-weight:500;white-space:nowrap}
+.fatcal small{color:var(--text-3);font-size:12px;margin-left:auto;text-align:right}
+.fatcal b{color:var(--text-3);font-weight:400;font-size:18px}
 .err{color:var(--danger);font-size:14px;text-align:center;min-height:18px;margin-top:8px}
 
 /* settings */
@@ -1365,7 +1372,7 @@ function renderCards(){
     <button class="dotbtn" data-kcol="${i}" style="background:var(--${k.c||'outro'})" aria-label="Trocar cor"></button>
     <input data-kname="${i}" value="${esc(k.n)}" style="text-align:left">
     <button class="tbtn" data-ktipo="${i}">${TIPO[k.t]}</button>
-    <button class="del" data-kdel="${i}">Remover</button></div>` + (k.t==="credito" ? `<div class="row fatrow">Fatura: fecha dia <input data-kfech="${i}" type="number" inputmode="numeric" min="1" max="31" value="${k.fech||""}" placeholder="—"> · vence dia <input data-kvenc="${i}" type="number" inputmode="numeric" min="1" max="31" value="${k.venc||""}" placeholder="—"> <button class="link" data-fatcal="${esc(k.id)}" style="margin-left:auto;font-size:13px">📅 Datas de cada mês</button></div>` : "")).join("")
+    <button class="del" data-kdel="${i}">Remover</button></div>` + (k.t==="credito" ? `<div class="row fatcfg"><label>Fecha dia<input data-kfech="${i}" type="number" inputmode="numeric" min="1" max="31" value="${k.fech||""}" placeholder="—"></label><label>Vence dia<input data-kvenc="${i}" type="number" inputmode="numeric" min="1" max="31" value="${k.venc||""}" placeholder="—"></label></div><button class="row fatcal" data-fatcal="${esc(k.id)}"><span>📅 Datas de cada mês</span><b style="margin-left:auto">›</b></button>` : "")).join("")
     : `<div class="row faint" style="font-size:14px">Nenhuma forma de pagamento cadastrada. Adicione abaixo.</div>`;
   $$("#cnTipo .tipocard").forEach(b=>b.classList.toggle("on", b.dataset.t===cnTipo));
   $("#cnFat").style.display = cnTipo==="credito" ? "flex" : "none";
