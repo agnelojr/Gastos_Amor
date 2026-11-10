@@ -393,6 +393,7 @@ textarea.csv{width:100%;height:120px;border-radius:12px;border:1px solid var(--l
     <div class="card">
       <div class="legend" id="lgYear"></div>
       <div class="chart" id="chYear"></div>
+      <div class="note" id="noteYear" style="margin:8px 0 0"></div>
     </div>
   </section>
 
@@ -1022,14 +1023,17 @@ function renderCharts(al){
   // only what was actually spent up to today (planned subscriptions/installments don't count yet)
   const yi = al.filter(a=>a.y===gY && a.d <= hoje && (yCardF==="all" || a.e.pag===yCardF));
   renderCatBars($("#yCats"), yi);
+  $("#noteYear").textContent = `Valores até a data de hoje (${hoje.split("-").reverse().join("/")}). O ano atual ainda está em andamento.`;
   $("#noteYCats").textContent = isCur ? `Valores até a data de hoje (${hoje.split("-").reverse().join("/")}). Assinaturas e parcelas futuras ainda não entram.`
     : isFut ? "" : `Ano completo de ${gY}.`;
   renderCatMonthly(months, hoje, isCur, barOpts.hl);
   // anual
-  const years = [...new Set(al.map(a=>a.y))].sort();
+  // annual comparison: only what was actually spent up to today
+  const alReal = al.filter(a => a.d <= hoje);
+  const years = [...new Set(alReal.map(a=>a.y))].sort();
   if (!years.length) years.push(now.getFullYear());
   const ys = years.slice(-6);
-  stackedBars($("#chYear"), ys.map(String), PAY_ORDER.map(p=>({key:p,name:PAY[p].n,color:PAY[p].c,ink:inkFor(p),values:ys.map(Y=>sum(al.filter(a=>a.y===Y && a.e.pag===p)))})),
+  stackedBars($("#chYear"), ys.map(String), PAY_ORDER.map(p=>({key:p,name:PAY[p].n,color:PAY[p].c,ink:inkFor(p),values:ys.map(Y=>sum(alReal.filter(a=>a.y===Y && a.e.pag===p)))})),
     {aria:"Gastos por ano", maxBar:34, hl: ys.indexOf(gY), labSize:11, fmtLab:c=>brlShort(c), maxBar:56, segLabels:true, segSize:9.5, fmtSeg:c=>brlShort(c).replace("R$ ","")});
 }
 
