@@ -862,7 +862,8 @@ function renderMonth(al, il){
   const prevAll = monthAlloc(pm[0],pm[1],al).filter(a => payFilter==="all" || a.e.pag===payFilter);
   const dia = now.getDate(), prevLim = `${pm[0]}-${String(pm[1]+1).padStart(2,"0")}-${String(Math.min(dia, new Date(pm[0],pm[1]+1,0).getDate())).padStart(2,"0")}`;
   const cmpCur = isNowM ? f.filter(a => a.d <= hojeC) : f, cmpPrev = isNowM ? prevAll.filter(a => a.d <= prevLim) : prevAll;
-  renderCatBars($("#mCats"), f, {lim:true, cmp:{cur:cmpCur, prev:cmpPrev}});
+  // no badges at all when the previous month has nothing yet (e.g. the first month using the app)
+  renderCatBars($("#mCats"), f, {lim:true, cmp: prevAll.length ? {cur:cmpCur, prev:cmpPrev} : null});
   $("#noteCmp").textContent = prevAll.length ? (isNowM ? `▲▼ comparado com ${MESES[pm[1]]} até o dia ${dia}, para comparar o mesmo período.` : `▲▼ comparado com ${MESES[pm[1]]}.`) : "";
   renderFaturas(allocations());
   renderRec(items);
