@@ -240,7 +240,7 @@ h2{font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--text
 .limalert{background:color-mix(in srgb,#eda100 16%,var(--surface));border-radius:12px;padding:10px 12px;font-size:14px;margin-bottom:8px;line-height:1.4}
 .limalert.over{background:color-mix(in srgb,var(--danger) 14%,var(--surface))}
 .adjacts button{color:var(--accent) !important}
-.adjacts button#maFrom{font-weight:700 !important}
+.adjacts button#maOne{font-weight:700 !important}
 .adjacts button#maNo{color:var(--text-2) !important;font-weight:500 !important}
 .frow{padding:0 !important;gap:4px}
 .frow .fmain{flex:1;display:flex;align-items:center;justify-content:space-between;text-align:left;padding:9px 2px;min-width:0}
@@ -594,11 +594,12 @@ textarea.csv{width:100%;height:120px;border-radius:12px;border:1px solid var(--l
 <div class="modal" id="modal2"><div class="box"><p id="m2Text"></p><div class="acts" style="grid-template-columns:1fr"><button id="m2Rep" style="color:var(--danger);font-weight:600">Substituir tudo</button><button id="m2Mer" style="border-left:0;border-top:1px solid var(--line);color:var(--accent);font-weight:600">Juntar com os atuais</button><button id="m2No" style="border-left:0;border-top:1px solid var(--line);color:var(--text-2);font-weight:400">Cancelar</button></div></div></div>
 <div class="modal" id="modalAdj"><div class="box"><p id="maText"></p>
   <div class="acts recacts adjacts">
-    <button id="maFrom">A partir deste mês</button>
-    <button id="maAll">Em todos os meses (corrigir)</button>
+    <button id="maOne">Só neste mês</button>
+    <button id="maFrom">Deste mês em diante</button>
+    <button id="maAll">Todos os meses (corrigir)</button>
     <button id="maNo">Cancelar</button>
   </div>
-  <p class="faint" style="font-size:12px;padding:0 16px 12px;margin:0">“A partir deste mês” mantém o valor antigo nos meses anteriores.</p></div></div>
+  <p class="faint" style="font-size:12px;padding:0 16px 12px;margin:0">“Só neste mês” serve para cobranças pontuais, como IOF. “Deste mês em diante” mantém o valor antigo nos meses anteriores.</p></div></div>
 <div class="modal" id="modalRec"><div class="box"><p id="mrText"></p>
   <div class="acts recacts">
     <button id="mrOne">Só a deste mês</button>
@@ -763,7 +764,8 @@ function allocations(){
       for (let t=t0; t<=tEnd; t++){
         const y=Math.floor(t/12), m=t%12, last=new Date(y,m+1,0).getDate();
         if (skip.includes(`${y}-${String(m+1).padStart(2,"0")}`)) continue;
-        out.push({e, y, m, val:e.valor, k:1, n:1, rec:true, fut: t>nowT,
+        const ymK = `${y}-${String(m+1).padStart(2,"0")}`;
+        out.push({e, y, m, val:(e.vals && e.vals[ymK]!=null) ? e.vals[ymK] : e.valor, k:1, n:1, rec:true, fut: t>nowT,
           d:`${y}-${String(m+1).padStart(2,"0")}-${String(Math.min(D,last)).padStart(2,"0")}`});
       }
       continue;
@@ -797,7 +799,8 @@ function incAllocs(){
     for (let t=t0; t<=tEnd; t++){
       const y=Math.floor(t/12), m=t%12, last=new Date(y,m+1,0).getDate();
       if (skip.includes(`${y}-${String(m+1).padStart(2,"0")}`)) continue;
-      out.push({i, y, m, val:i.valor, rec:!!i.rec, fut: t>nowT, d: t===t0 ? i.data : isoOf(y,m,Math.min(D,last))});
+      const ymK = `${y}-${String(m+1).padStart(2,"0")}`;
+      out.push({i, y, m, val:(i.rec && i.vals && i.vals[ymK]!=null) ? i.vals[ymK] : i.valor, rec:!!i.rec, fut: t>nowT, d: t===t0 ? i.data : isoOf(y,m,Math.min(D,last))});
     }
   }
   return out;
@@ -1626,12 +1629,14 @@ function lastBox(){
   return e ? e.box : (state.boxes[0]?.id || null);
 }
 const KIND_TITLE = {gasto:["Novo gasto","Editar gasto"], ent:["Nova entrada","Editar entrada"], transf:["Nova transferência","Editar transferência"]};
-let editYM = null; // month of the occurrence that was tapped (for recurring items)
+let editYM = null, editValShown = null; // month of the occurrence that was tapped (for recurring items)
 function openSheet(e, kind="gasto", ym){
   editYM = ym || `${curY}-${String(curM+1).padStart(2,"0")}`;
   editing = e || null; fKind = kind; editKind = kind==="gasto" ? "exp" : "inc";
   $("#sDel").style.display = e ? "block" : "none";
   $("#fVal").value = e ? fmtInput(e.valor) : "";
+  editValShown = e ? e.valor : null;
+  if (e && e.rec && e.vals && ym && e.vals[ym]!=null){ $("#fVal").value = fmtInput(e.vals[ym]); editValShown = e.vals[ym]; }
   $("#fDesc").value = e ? (e.desc||"") : "";
   $("#fData").value = e ? e.data : (curY===now.getFullYear() && curM===now.getMonth() ? todayISO() : `${curY}-${String(curM+1).padStart(2,"0")}-01`);
   const bfDef = boxFilter!=="all" ? boxFilter : null;
@@ -1765,6 +1770,7 @@ $("#sSave").addEventListener("click", async () => {
   const data = $("#fData").value || todayISO();
   const base = { id: editing?.id || uid(), valor, desc: $("#fDesc").value.trim(), data, criado: editing?.criado || Date.now() };
   if (fRec && Array.isArray(editing?.skip) && editing.skip.length) base.skip = editing.skip.slice();
+  if (fRec && editing?.vals && Object.keys(editing.vals).length) base.vals = {...editing.vals};
   if (fRec){ base.rec = true; const fim = $("#fFim").value; if (fim){ if (fim < data.slice(0,7)) return err("O mês final é antes do início."); base.fim = fim; } }
   let rec, kind;
   if (fKind==="gasto"){
@@ -1782,7 +1788,7 @@ $("#sSave").addEventListener("click", async () => {
     if (fKind==="transf") rec.de = fFrom;
   }
   // price change on a subscription, opened from a month after it started: ask from when it applies
-  if (editing && editing.rec && fRec && rec.valor !== editing.valor && editYM > editing.data.slice(0,7)){
+  if (editing && editing.rec && fRec && rec.valor !== editValShown){
     pendReaj = {e: rec, kind}; abrirReaj(editing, rec.valor); return;
   }
   closeSheet();
@@ -1793,29 +1799,43 @@ $("#sSave").addEventListener("click", async () => {
 /* ---------------- reajuste de assinatura ---------------- */
 let pendReaj = null;
 function abrirReaj(old, novo){
-  $("#maText").innerHTML = `<b>${esc(old.desc||(pendReaj?.kind==="inc"?"Entrada":"Assinatura"))}</b>: de ${brl(old.valor)} para <b>${brl(novo)}</b>. A partir de quando vale o novo valor?`;
-  $("#maFrom").textContent = `A partir de ${ymLabel(editYM)}`;
+  const deV = editValShown != null ? editValShown : old.valor;
+  $("#maText").innerHTML = `<b>${esc(old.desc||(pendReaj?.kind==="inc"?"Entrada":"Assinatura"))}</b>: de ${brl(deV)} para <b>${brl(novo)}</b>. Onde vale o novo valor?`;
+  $("#maOne").textContent = `Só em ${ymLabel(editYM)}`;
+  $("#maFrom").textContent = `De ${ymLabel(editYM)} em diante`;
   $("#modalAdj").classList.add("on");
 }
-async function aplicarReaj(desdeJa){
+async function aplicarReaj(modo){
+  const desdeJa = modo === "from";
   $("#modalAdj").classList.remove("on");
   const pr = pendReaj; pendReaj = null; if (!pr || !editing) return;
   const old = editing, e = pr.e, ym = editYM, kind = pr.kind;
   closeSheet();
   const put = (x) => kind ? store.put(x, kind) : store.put(x);
   try{
-    if (!desdeJa){ await put(e); toast("Valor corrigido em todos os meses"); return; }
+    if (modo === "one"){
+      // only this month gets the new value (e.g. IOF); the subscription keeps its normal value
+      const x = {...old, vals: {...(old.vals||{}), [ym]: e.valor}};
+      await put(x); toast(`Valor alterado só em ${ymLabel(ym)}`); return;
+    }
+    if (!desdeJa || ym <= old.data.slice(0,7)){
+      const x = {...e}; if (x.vals){ delete x.vals[ym]; if (!Object.keys(x.vals).length) delete x.vals; }
+      await put(x); toast(desdeJa ? `Novo valor de ${ymLabel(ym)} em diante` : "Valor corrigido em todos os meses"); return;
+    }
     // keep history: the old series ends the month before; a new one starts this month
     const antigo = {...old, fim: ymPrev(ym)};
     const sk = (old.skip||[]); antigo.skip = sk.filter(x=>x<ym); if (!antigo.skip.length) delete antigo.skip;
     const novo = {...e, id: uid(), data: `${ym}-${e.data.slice(8)}`, criado: Date.now()};
     const sk2 = (e.skip||[]).filter(x=>x>=ym); if (sk2.length) novo.skip = sk2; else delete novo.skip;
+    const va = Object.fromEntries(Object.entries(old.vals||{}).filter(([k])=>k<ym)); if (Object.keys(va).length) antigo.vals = va; else delete antigo.vals;
+    const vn = Object.fromEntries(Object.entries(e.vals||{}).filter(([k])=>k>ym)); if (Object.keys(vn).length) novo.vals = vn; else delete novo.vals;
     await put(antigo); await put(novo);
     toast(`Novo valor a partir de ${ymLabel(ym)}`);
   }catch(err){ toast("Não foi possível salvar"); }
 }
-$("#maFrom").addEventListener("click", ()=>aplicarReaj(true));
-$("#maAll").addEventListener("click", ()=>aplicarReaj(false));
+$("#maOne").addEventListener("click", ()=>aplicarReaj("one"));
+$("#maFrom").addEventListener("click", ()=>aplicarReaj("from"));
+$("#maAll").addEventListener("click", ()=>aplicarReaj("all"));
 $("#maNo").addEventListener("click", ()=>{ pendReaj=null; $("#modalAdj").classList.remove("on"); });
 const ymLabel = ym => { const [y,m] = ym.split("-").map(Number); return `${MESES[m-1]} de ${y}`; };
 const ymPrev = ym => { let [y,m] = ym.split("-").map(Number); m -= 1; if (m<1){ m=12; y--; } return `${y}-${String(m).padStart(2,"0")}`; };
