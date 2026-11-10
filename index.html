@@ -282,6 +282,11 @@ h2{font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--text
 .bkban .bka{display:flex;gap:8px;margin-top:10px}
 .bkban .bkgo{flex:1;background:var(--accent);color:#fff;border-radius:10px;padding:9px;font-weight:600;font-size:15px}
 .bkban .bklater{padding:9px 14px;border-radius:10px;background:var(--surface-2);color:var(--text-2);font-size:15px}
+.cardrow .kname{width:auto !important;flex:1 1 auto !important;color:var(--text) !important;font-size:16px !important}
+.kname{flex:1;display:flex;align-items:center;gap:6px;min-width:0;border-radius:9px;padding:4px 8px;margin-left:-8px}
+.kname input{flex:1;min-width:0;width:100% !important;text-align:left !important}
+.kname span{color:var(--text-3);font-size:14px}
+.kname:focus-within{background:var(--surface-2)}.kname:focus-within span{color:var(--accent)}
 .err{color:var(--danger);font-size:14px;text-align:center;min-height:18px;margin-top:8px}
 
 /* settings */
@@ -630,6 +635,8 @@ const TIPO_ORDER = Object.keys(TIPO);
 const REMOVED = {n:"Forma removida", c:"var(--outro)", t:null};
 let PAY = {}, PAY_ORDER = [];
 function rebuildPay(){
+  const rank = t => { const i = ["credito","debito","pix","boleto","saque"].indexOf(t); return i < 0 ? 9 : i; };
+  state.cards.sort((a,b) => rank(a.t) - rank(b.t));
   const o = {};
   state.cards.forEach(k => { o[k.id] = {n:k.n, c:`var(--${k.c||"outro"})`, t:k.t, slot:k.c}; });
   PAY = new Proxy(o, {get:(t,k)=> t[k] || REMOVED});
@@ -1422,7 +1429,7 @@ const CARD_SLOTS = ["s2","s1","s7","s3","s8","s5","s4","s6"];
 function renderCards(){
   $("#cardEdit").innerHTML = state.cards.length ? state.cards.map((k,i)=>`<div class="row cardrow">
     <button class="dotbtn" data-kcol="${i}" style="background:var(--${k.c||'outro'})" aria-label="Trocar cor"></button>
-    <input data-kname="${i}" value="${esc(k.n)}" style="text-align:left">
+    <label class="kname"><input data-kname="${i}" value="${esc(k.n)}" enterkeyhint="done" aria-label="Nome da forma de pagamento"><span>✎</span></label>
     <button class="tbtn" data-ktipo="${i}">${TIPO[k.t]}</button>
     <button class="del" data-kdel="${i}">Remover</button></div>` + (k.t==="credito" ? `<div class="row fatcfg"><label>Fecha dia<input data-kfech="${i}" type="number" inputmode="numeric" min="1" max="31" value="${k.fech||""}" placeholder="—"></label><label>Vence dia<input data-kvenc="${i}" type="number" inputmode="numeric" min="1" max="31" value="${k.venc||""}" placeholder="—"></label></div><button class="row fatcal" data-fatcal="${esc(k.id)}"><span>📅 Datas de cada mês</span><b style="margin-left:auto">›</b></button>` : "")).join("")
     : `<div class="row faint" style="font-size:14px">Nenhuma forma de pagamento cadastrada. Adicione abaixo.</div>`;
@@ -1464,9 +1471,11 @@ $("#cardEdit").addEventListener("change", async e => {
   if (f!==undefined){ if (val) k.fech = val; else delete k.fech; } else { if (val) k.venc = val; else delete k.venc; }
   await saveCards(); toast("Fatura atualizada");
 });
-$("#cardEdit").addEventListener("input", e => { const i = e.target.dataset.kname; if (i===undefined) return;
-  const v = e.target.value.trim(); if (v) state.cards[i].n = v;
-  clearTimeout(cardT); cardT = setTimeout(()=>{ saveCards().catch(()=>{}); }, 700); });
+$("#cardEdit").addEventListener("change", async e => { const i = e.target.dataset.kname; if (i===undefined) return;
+  const k = state.cards[+i], v = e.target.value.trim();
+  if (!v || v === k.n){ e.target.value = k.n; return; }
+  k.n = v; await saveCards().catch(()=>{}); toast(`Nome alterado para “${v}”`); });
+$("#cardEdit").addEventListener("keydown", e => { if (e.key==="Enter" && e.target.dataset.kname!==undefined) e.target.blur(); });
 
 /* caixinhas (ajustes) */
 const BOX_EMOJIS = ["🐷","💰","🏦","💵","🛟","✈️","🏖️","🏠","🚗","🎓","💍","👶","🐶","🎁","🛍️","💄","🏋️","🎮","📱","💻","🩺","🍽️","🛒","🎉","⛽","🧾","📈","❤️","⭐","🌱","🎄","🔧"];
@@ -1584,12 +1593,13 @@ $("#catEdit").addEventListener("change", async e => {
   if (v > 0) state.cats[i].lim = v; else delete state.cats[i].lim;
   await store.saveCats(); toast(v>0 ? `Limite de ${state.cats[i].n}: ${brl(v)}` : "Limite removido");
 });
-$("#catEdit").addEventListener("input", e => {
+$("#catEdit").addEventListener("change", e => {
   const i = e.target.dataset.cname ?? e.target.dataset.cemoji; if (i===undefined) return;
   if (e.target.dataset.cname!==undefined) state.cats[i].n = e.target.value.trim() || state.cats[i].n;
   else state.cats[i].e = e.target.value.trim().slice(0,4) || "•";
-  clearTimeout(catTimer); catTimer = setTimeout(()=>{ store.saveCats().catch(()=>{}); }, 700);
+  store.saveCats().catch(()=>{});
 });
+$("#catEdit").addEventListener("keydown", e => { if (e.key==="Enter" && (e.target.dataset.cname!==undefined || e.target.dataset.cemoji!==undefined)) e.target.blur(); });
 $("#addCat").addEventListener("click", async () => {
   const n = $("#newCat").value.trim(); if (!n) return;
   const used = state.cats.map(c=>c.c); const free = SLOTS.find(s=>!used.includes(s)) || null;
