@@ -272,6 +272,16 @@ h2{font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--text
 .fatcal span{color:var(--accent);font-size:15px;font-weight:500;white-space:nowrap}
 .fatcal small{color:var(--text-3);font-size:12px;margin-left:auto;text-align:right}
 .fatcal b{color:var(--text-3);font-weight:400;font-size:18px}
+.cmp{font-size:11.5px;font-weight:600;padding:2px 6px;border-radius:6px;margin-left:4px;white-space:nowrap}
+.cmp.up{color:var(--danger);background:color-mix(in srgb,var(--danger) 12%,transparent)}
+.cmp.down{color:#1a8f5f;background:color-mix(in srgb,#1a8f5f 12%,transparent)}
+.cmp.novo,.cmp.eq{color:var(--text-3);background:var(--surface-2)}
+@media (prefers-color-scheme: dark){.cmp.down{color:#3cc48f}}
+.bkban{margin-top:10px;background:color-mix(in srgb,var(--accent) 10%,var(--surface));border:1px solid color-mix(in srgb,var(--accent) 30%,transparent);border-radius:var(--r);padding:12px 14px}
+.bkban .bkt{font-size:14px;line-height:1.4}.bkban .bkt span{display:block;color:var(--text-2);font-size:13px;margin-top:2px}
+.bkban .bka{display:flex;gap:8px;margin-top:10px}
+.bkban .bkgo{flex:1;background:var(--accent);color:#fff;border-radius:10px;padding:9px;font-weight:600;font-size:15px}
+.bkban .bklater{padding:9px 14px;border-radius:10px;background:var(--surface-2);color:var(--text-2);font-size:15px}
 .err{color:var(--danger);font-size:14px;text-align:center;min-height:18px;margin-top:8px}
 
 /* settings */
@@ -381,6 +391,7 @@ textarea.csv{width:100%;height:120px;border-radius:12px;border:1px solid var(--l
       <div class="d" id="mDelta"></div>
       <div class="inrow" id="mIn" style="display:none"></div>
     </div>
+    <div id="mBk"></div>
     <div class="cards" id="mCards"></div>
     <div id="mFat"></div>
 
@@ -389,6 +400,7 @@ textarea.csv{width:100%;height:120px;border-radius:12px;border:1px solid var(--l
 
     <h2>Por categoria</h2>
     <div class="card" id="mCats"></div>
+    <div class="note" id="noteCmp" style="margin:6px 6px 0"></div>
 
     <h2>Entradas e transferências</h2>
     <div id="mInc"></div>
@@ -570,6 +582,7 @@ textarea.csv{width:100%;height:120px;border-radius:12px;border:1px solid var(--l
   <div class="chips" id="fBoxB"></div>
   <div class="err" id="fErr"></div>
   <button class="btn ghost" id="sEnd" style="display:none;color:var(--accent)">Encerrar assinatura neste mês</button>
+  <button class="btn ghost" id="sRep" style="display:none;color:var(--accent)">🔁 Repetir este gasto</button>
   <button class="btn ghost" id="sDel" style="display:none">Excluir lançamento</button>
 </div>
 
@@ -791,7 +804,29 @@ function boxBalances(al, il, lim){
 }
 
 /* ---------------- render: month ---------------- */
+// reminder on the home screen: data lives only on this iPhone, so nudge a backup every 30 days
+function renderBkBanner(){
+  const el = $("#mBk"); if (!el) return;
+  const get = k => { try{ return localStorage.getItem(k); }catch(e){ return null; } };
+  const last = +get(BK_KEY) || 0, n = state.expenses.length;
+  const dias = last ? Math.floor((Date.now() - last) / 864e5) : null;
+  const precisa = last ? dias >= 30 : n >= 5;
+  // at most once a month: shown on the first opening of the month, then quiet until the next month
+  const mesAtual = todayISO().slice(0,7), ss = (()=>{ try{ return sessionStorage.getItem(BK_KEY+".sess"); }catch(e){ return null; } })();
+  const jaMostrou = get(BK_KEY + ".mes") === mesAtual && ss !== mesAtual;
+  if (!precisa || jaMostrou || get(BK_KEY + ".fechado") === mesAtual){ el.innerHTML = ""; return; }
+  try{ localStorage.setItem(BK_KEY + ".mes", mesAtual); sessionStorage.setItem(BK_KEY + ".sess", mesAtual); }catch(e){}
+  el.innerHTML = `<div class="bkban"><div class="bkt">💾 <b>${last ? `Faz ${dias} dias que você não salva um backup` : "Você ainda não salvou nenhum backup"}</b>
+    <span>Seus ${n} lançamentos ficam só neste iPhone. Salve uma cópia no iCloud Drive para não perder nada.</span></div>
+    <div class="bka"><button class="bkgo" data-bkgo>Salvar backup</button><button class="bklater" data-bklater>Depois</button></div></div>`;
+}
+document.addEventListener("click", e => {
+  if (e.target.closest("[data-bkgo]")){ $("#bkSave").click(); return; }
+  if (e.target.closest("[data-bklater]")){ try{ localStorage.setItem(BK_KEY + ".fechado", todayISO().slice(0,7)); }catch(err){} renderBkBanner(); toast("Ok, lembro de novo no mês que vem"); }
+});
+
 function renderMonth(al, il){
+  renderBkBanner();
   $("#mLbl").textContent = `${MESES[curM]} ${curY}`;
   const items = monthAlloc(curY,curM,al);
   const total = sum(items);
@@ -822,7 +857,13 @@ function renderMonth(al, il){
 
   renderBoxes(al, il);
   const f = items.filter(a => (payFilter==="all" || a.e.pag===payFilter) && (boxFilter==="all" || a.e.box===boxFilter));
-  renderCatBars($("#mCats"), f, {lim:true});
+  // compare each category with the previous month (same stretch of days when looking at the current month)
+  const hojeC = todayISO(), isNowM = curY===now.getFullYear() && curM===now.getMonth();
+  const prevAll = monthAlloc(pm[0],pm[1],al).filter(a => payFilter==="all" || a.e.pag===payFilter);
+  const dia = now.getDate(), prevLim = `${pm[0]}-${String(pm[1]+1).padStart(2,"0")}-${String(Math.min(dia, new Date(pm[0],pm[1]+1,0).getDate())).padStart(2,"0")}`;
+  const cmpCur = isNowM ? f.filter(a => a.d <= hojeC) : f, cmpPrev = isNowM ? prevAll.filter(a => a.d <= prevLim) : prevAll;
+  renderCatBars($("#mCats"), f, {lim:true, cmp:{cur:cmpCur, prev:cmpPrev}});
+  $("#noteCmp").textContent = prevAll.length ? (isNowM ? `▲▼ comparado com ${MESES[pm[1]]} até o dia ${dia}, para comparar o mesmo período.` : `▲▼ comparado com ${MESES[pm[1]]}.`) : "";
   renderFaturas(allocations());
   renderRec(items);
   renderInc(boxFilter==="all" ? mi : mi.filter(x => x.i.box===boxFilter || x.i.de===boxFilter));
@@ -1016,15 +1057,25 @@ function renderCatBars(el, items, opts={}){
   const rows = Object.entries(g).sort((a,b)=>b[1]-a[1]);
   const max = rows[0][1];
   const alerts = [];
+  // ▲▼ badge vs previous month
+  const cmpOf = id => {
+    if (!opts.cmp) return "";
+    const a = sum(opts.cmp.cur.filter(x=>x.e.cat===id)), b = sum(opts.cmp.prev.filter(x=>x.e.cat===id));
+    if (!b && !a) return "";
+    if (!b) return `<span class="cmp novo">novo</span>`;
+    const pc = Math.round((a-b)/b*100);
+    if (pc === 0) return `<span class="cmp eq">= 0%</span>`;
+    return `<span class="cmp ${pc>0?'up':'down'}" title="antes: ${brl(b)}">${pc>0?'▲':'▼'} ${Math.abs(pc)}%</span>`;
+  };
   const html = rows.map(([id,v]) => { const c = catById(id);
     const L = opts.lim && c.lim > 0 ? c.lim : 0;
-    if (!L) return `<div class="catrow"><div class="nm"><span>${c.e}</span>${esc(c.n)}</div>
+    if (!L) return `<div class="catrow"><div class="nm"><span>${c.e}</span>${esc(c.n)}${cmpOf(id)}</div>
       <div class="vl num">${brl(v)}<span class="pc">${Math.round(v/tot*100)}%</span></div>
       <div class="track"><div class="fill" style="width:${Math.max(2,v/max*100)}%;background:${catColor(c)}"></div></div></div>`;
     const pct = Math.round(v/L*100), cls = v > L ? "over" : pct >= 80 ? "warn" : "";
     const txt = v > L ? `🚨 Passou ${brl(v-L)} do limite de ${brl(L)}` : pct >= 80 ? `⚠️ ${pct}% do limite · restam ${brl(L-v)}` : `${pct}% do limite de ${brl(L)} · restam ${brl(L-v)}`;
     if (cls) alerts.push({c, pct, over: v > L});
-    return `<div class="catrow"><div class="nm"><span>${c.e}</span>${esc(c.n)}</div>
+    return `<div class="catrow"><div class="nm"><span>${c.e}</span>${esc(c.n)}${cmpOf(id)}</div>
       <div class="vl num">${brl(v)}<span class="pc">de ${brl(L)}</span></div>
       <div class="track"><div class="fill" style="width:${Math.max(2,Math.min(100,v/L*100))}%;background:${v>L?'var(--danger)':catColor(c)}"></div></div>
       <div class="lim ${cls}">${txt}</div></div>`;
@@ -1598,9 +1649,28 @@ function boxChips(val, key, none){
   return (none ? `<button class="chip ${!val?'on':''}" data-${key}="">Nenhuma</button>` : "")
     + state.boxes.map(b=>`<button class="chip ${val===b.id?'on':''}" data-${key}="${esc(b.id)}"><span class="dot" style="background:${catColor(b)}"></span>${b.e} ${esc(b.n)}</button>`).join("");
 }
+// "Repetir": open a new expense already filled in with the same description, category and card, dated today
+$("#sRep").addEventListener("click", () => {
+  const src = editing; if (!src) return;
+  closeSheet();
+  setTimeout(() => {
+    openSheet();
+    $("#sheet").scrollTop = 0;
+    $("#fVal").value = fmtInput(src.valor); $("#fDesc").value = src.desc || "";
+    $("#fData").value = todayISO();
+    fCat = state.cats.some(c=>c.id===src.cat) ? src.cat : null;
+    fPay = PAY_ORDER.includes(src.pag) ? src.pag : firstPay();
+    fParc = src.parc || 1;
+    fFrom = src.box || null;
+    syncSheet();
+    $("#sTitle").textContent = "Repetir gasto";
+    setTimeout(()=>{ const v=$("#fVal"); v.focus(); v.select(); }, 320);
+  }, 260);
+});
 function syncSheet(){
   const g = fKind==="gasto";
   $("#sTitle").textContent = KIND_TITLE[fKind][editing ? 1 : 0];
+  $("#sRep").style.display = editing && fKind==="gasto" && !editing.rec ? "block" : "none";
   $("#fKind").style.display = editing ? "none" : "flex";
   $$("#fKind button").forEach(b=>b.classList.toggle("on", b.dataset.k===fKind));
   ["#payLab","#fPay","#catLab","#fCats"].forEach(s => $(s).style.display = g ? "" : "none");
@@ -1785,7 +1855,7 @@ $("#bkSave").addEventListener("click", async () => {
     if (navigator.canShare && navigator.canShare({files:[file]})){ await navigator.share({files:[file], title:"Backup dos gastos"}); }
     else { const a=document.createElement("a"); a.href=URL.createObjectURL(file); a.download=nome; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href), 4000); }
     try{ localStorage.setItem(BK_KEY, String(Date.now())); }catch(e){}
-    bkInfo(); toast("Backup pronto");
+    bkInfo(); renderBkBanner(); toast("Backup pronto");
   }catch(e){ if (e && e.name!=="AbortError") toast("Não foi possível salvar o backup"); }
 });
 let pendingBk = null;
