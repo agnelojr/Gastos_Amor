@@ -255,6 +255,15 @@ h2{font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--text
 .mfrow label{flex:1;text-align:left;font-size:12px;color:var(--text-3);background:var(--surface-2);border-radius:10px;padding:8px 10px}
 .mfrow input{display:block;width:100%;border:0;background:none;outline:none;font-size:15px;color:var(--text);margin-top:2px}
 .adjacts{grid-template-columns:1fr !important}
+.calbox{max-width:360px !important;max-height:86vh;display:flex;flex-direction:column}
+.mclist{overflow:auto;padding:0 12px 8px;text-align:left}
+.mcrow{display:grid;grid-template-columns:1fr 1fr;gap:6px 8px;padding:10px 4px;border-top:1px solid var(--line)}
+.mcrow .mh{grid-column:1/3;display:flex;align-items:center;font-size:14px;font-weight:600;text-transform:capitalize}
+.mcrow .mh i{font-style:normal;font-weight:500;font-size:12px;color:var(--accent);margin-left:8px;text-transform:none}
+.mcrow .mh button{margin-left:auto;font-size:12px}
+.mcrow label{font-size:11px;color:var(--text-3);background:var(--surface-2);border-radius:9px;padding:6px 8px}
+.mcrow input{display:block;width:100%;border:0;background:none;outline:none;font-size:14px;color:var(--text);margin-top:1px}
+.mcrow.atual{background:color-mix(in srgb,var(--accent) 6%,transparent);border-radius:10px}
 .err{color:var(--danger);font-size:14px;text-align:center;min-height:18px;margin-top:8px}
 
 /* settings */
@@ -572,6 +581,9 @@ textarea.csv{width:100%;height:120px;border-radius:12px;border:1px solid var(--l
     <button id="mrNo">Cancelar</button>
   </div>
   <p class="faint" style="font-size:12px;padding:0 16px 12px;margin:0">“Esta e as próximas” mantém os meses anteriores no seu controle.</p></div></div>
+<div class="modal" id="modalCal"><div class="box calbox"><p id="mcText"></p>
+  <div id="mcList" class="mclist"></div>
+  <div class="acts recacts adjacts"><button id="mcOk" style="font-weight:700 !important">Pronto</button></div></div></div>
 <div class="modal" id="modalFat"><div class="box"><p id="mfText"></p>
   <div class="mfrow"><label>Começa em<input type="date" id="mfIni"></label><label>Fecha em<input type="date" id="mfFech"></label><label>Vence em<input type="date" id="mfVenc"></label></div>
   <div class="acts recacts adjacts">
@@ -925,12 +937,49 @@ function renderFaturas(al){
     const atual = fatura(k,y,m), ant = fatura(k,...addM(y,m,-1)), prox = fatura(k,...addM(y,m,1));
     const tot = f => sum(al.filter(a => a.e.pag===k.id && a.d >= f.ini && a.d <= f.fim));
     const row = (f, nome, sub, cls="") => `<div class="frow ${cls}"><button class="fmain" data-fat="${esc(k.id)}|${f.ini}|${f.fim}"><span>${nome}<small>${sub}${f.ajustada?' · <i>datas ajustadas</i>':''}</small></span><b class="num">${brl(tot(f))}</b></button><button class="fedit" data-fatedit="${esc(k.id)}|${ymKeyF(f.y,f.m)}" aria-label="Ajustar datas desta fatura">✎</button></div>`;
-    return `<div class="card fat"><div class="fh"><span class="dot" style="background:${PAY[k.id].c}"></span><b>Fatura ${esc(k.n)}</b><span class="faint">fecha dia ${k.fech} · vence dia ${k.venc}</span></div>` +
+    return `<div class="card fat"><div class="fh"><span class="dot" style="background:${PAY[k.id].c}"></span><b>Fatura ${esc(k.n)}</b><button class="link" data-fatcal="${esc(k.id)}" style="margin-left:auto;font-size:13px">📅 Datas de cada mês</button></div>` +
       (hoje <= ant.venc ? row(ant, "Fechada · a pagar", `${brD(ant.ini)} a ${brD(ant.fim)} · vence ${brD(ant.venc)}`) : "") +
       row(atual, "Atual (aberta)", `${brD(atual.ini)} a ${brD(atual.fim)} · vence ${brD(atual.venc)}`, "atual") +
       row(prox, "Próxima", `${brD(prox.ini)} a ${brD(prox.fim)} · já lançado`) + `</div>`;
   }).join("");
 }
+// list of the coming invoices so the closing/due date can be chosen month by month
+let calCard = null;
+function abrirCal(id){
+  const k = state.cards.find(x=>x.id===id); if (!k) return;
+  if (!k.fech || !k.venc){ toast("Coloque primeiro o dia padrão de fechamento e vencimento"); go("aj"); return; }
+  calCard = k; renderCal(); $("#modalCal").classList.add("on");
+}
+function renderCal(){
+  const k = calCard; if (!k) return;
+  const hoje = todayISO();
+  $("#mcText").innerHTML = `<b>Fatura ${esc(k.n)} · datas de cada mês</b><br><span class="faint" style="font-size:13px">Padrão: fecha dia ${k.fech} e vence dia ${k.venc}. Mude só os meses em que o banco fechar em outro dia.</span>`;
+  let html = "";
+  for (let d=-1; d<=11; d++){
+    const [y,m] = addM(now.getFullYear(), now.getMonth(), d), f = fatura(k,y,m), key = ymKeyF(y,m);
+    const atual = f.ini <= hoje && hoje <= f.fim;
+    html += `<div class="mcrow ${atual?'atual':''}"><div class="mh">${MESES[m]} ${y}${f.ajustada?'<i>ajustada</i>':''}${atual?'<i>atual</i>':''}${f.ajustada?`<button class="link" data-mcreset="${key}">voltar ao padrão</button>`:''}</div>
+      <label>Fecha em<input type="date" data-mcf="${key}" value="${f.fim}"></label><label>Vence em<input type="date" data-mcv="${key}" value="${f.venc}"></label></div>`;
+  }
+  $("#mcList").innerHTML = html;
+}
+$("#mcList").addEventListener("change", async e => {
+  const key = e.target.dataset.mcf || e.target.dataset.mcv; if (!key || !e.target.value) return;
+  const k = calCard, [y,m] = key.split("-").map(Number), f = fatura(k, y, m-1);
+  const fech = e.target.dataset.mcf ? e.target.value : f.fim, venc = e.target.dataset.mcv ? e.target.value : f.venc;
+  if (venc < fech){ toast("O vencimento não pode ser antes do fechamento"); renderCal(); return; }
+  k.ovr = k.ovr || {};
+  const padF = isoD(y,m-1,k.fech), [vy,vm] = k.venc > k.fech ? [y,m-1] : addM(y,m-1,1), padV = isoD(vy,vm,k.venc);
+  if (fech===padF && venc===padV) delete k.ovr[key]; else k.ovr[key] = {f: fech, v: venc};
+  if (!Object.keys(k.ovr).length) delete k.ovr;
+  await saveCards(); renderCal(); toast(`${MESES[m-1]}: fecha ${brD(fech)}, vence ${brD(venc)}`);
+});
+$("#mcList").addEventListener("click", async e => { const b = e.target.closest("[data-mcreset]"); if (!b) return;
+  const k = calCard; if (k.ovr){ delete k.ovr[b.dataset.mcreset]; if (!Object.keys(k.ovr).length) delete k.ovr; }
+  await saveCards(); renderCal(); toast("Voltou ao dia padrão"); });
+$("#mcOk").addEventListener("click", ()=>{ calCard=null; $("#modalCal").classList.remove("on"); });
+document.addEventListener("click", e => { const b = e.target.closest("[data-fatcal]"); if (b){ e.preventDefault(); abrirCal(b.dataset.fatcal); } });
+
 let fatEdit = null;
 document.addEventListener("click", e => {
   const fe = e.target.closest("[data-fatedit]");
@@ -1312,7 +1361,7 @@ function renderCards(){
     <button class="dotbtn" data-kcol="${i}" style="background:var(--${k.c||'outro'})" aria-label="Trocar cor"></button>
     <input data-kname="${i}" value="${esc(k.n)}" style="text-align:left">
     <button class="tbtn" data-ktipo="${i}">${TIPO[k.t]}</button>
-    <button class="del" data-kdel="${i}">Remover</button></div>` + (k.t==="credito" ? `<div class="row fatrow">Fatura: fecha dia <input data-kfech="${i}" type="number" inputmode="numeric" min="1" max="31" value="${k.fech||""}" placeholder="—"> · vence dia <input data-kvenc="${i}" type="number" inputmode="numeric" min="1" max="31" value="${k.venc||""}" placeholder="—"></div>` : "")).join("")
+    <button class="del" data-kdel="${i}">Remover</button></div>` + (k.t==="credito" ? `<div class="row fatrow">Fatura: fecha dia <input data-kfech="${i}" type="number" inputmode="numeric" min="1" max="31" value="${k.fech||""}" placeholder="—"> · vence dia <input data-kvenc="${i}" type="number" inputmode="numeric" min="1" max="31" value="${k.venc||""}" placeholder="—"> <button class="link" data-fatcal="${esc(k.id)}" style="margin-left:auto;font-size:13px">📅 Datas de cada mês</button></div>` : "")).join("")
     : `<div class="row faint" style="font-size:14px">Nenhuma forma de pagamento cadastrada. Adicione abaixo.</div>`;
   $$("#cnTipo .tipocard").forEach(b=>b.classList.toggle("on", b.dataset.t===cnTipo));
   $("#cnFat").style.display = cnTipo==="credito" ? "flex" : "none";
