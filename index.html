@@ -209,7 +209,8 @@ h2{font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--text
 .pay button small{font-size:11px;color:var(--text-3);font-weight:500;margin-top:-4px}
 .cc .tipo{margin-left:auto;font-size:11px;color:var(--text-3);font-weight:500}
 .cc .n{min-width:0}
-.tiporow{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:12px 14px 4px}
+.tiporow{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:12px 14px 4px}
+.tipocard{font-size:14px;padding:12px 6px !important}.tipocard span{font-size:24px !important}
 .tipocard{background:var(--surface-2);border-radius:14px;padding:14px 10px;border:2px solid transparent;display:flex;flex-direction:column;align-items:center;gap:4px;font-weight:600}
 .tipocard span{font-size:26px}.tipocard small{font-size:12px;color:var(--text-3);font-weight:500;text-align:center}
 .tipocard.on{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 10%,var(--surface))}
@@ -331,7 +332,6 @@ textarea.csv{width:100%;height:120px;border-radius:12px;border:1px solid var(--l
       <div class="inrow" id="mIn" style="display:none"></div>
     </div>
     <div class="cards" id="mCards"></div>
-    <div class="other" id="mOther"></div>
 
     <h2 id="boxTitle">Caixinhas · saldo hoje</h2>
     <div class="boxes" id="mBoxes"></div>
@@ -426,19 +426,22 @@ textarea.csv{width:100%;height:120px;border-radius:12px;border:1px solid var(--l
       <div class="emogrid" id="bnGrid"></div>
     </div>
     <p class="note">Para começar, lance como <b>Entrada</b> o dinheiro que já existe em cada caixinha (ex.: “Saldo inicial”). Depois o saldo se atualiza sozinho a cada gasto, entrada ou transferência.</p>
-    <h2>Cartões</h2>
+    <h2>Formas de pagamento</h2>
     <div class="field" id="cardEdit"></div>
     <div class="field" id="cardNew">
-      <div class="lab" style="margin:12px 14px 0">Novo cartão</div>
+      <div class="lab" style="margin:12px 14px 0">Nova forma de pagamento</div>
       <div class="tiporow" id="cnTipo">
         <button class="tipocard on" data-t="credito"><span>💳</span>Crédito<small>aceita parcelas</small></button>
-        <button class="tipocard" data-t="debito"><span>🏧</span>Débito<small>sai na hora da conta</small></button>
+        <button class="tipocard" data-t="debito"><span>🏧</span>Débito<small>sai da conta</small></button>
+        <button class="tipocard" data-t="pix"><span>⚡</span>Pix<small>de um banco</small></button>
+        <button class="tipocard" data-t="boleto"><span>🧾</span>Boleto<small>código de barras</small></button>
+        <button class="tipocard" data-t="saque"><span>💵</span>Saque<small>dinheiro vivo</small></button>
       </div>
-      <div class="row"><input id="cnName" placeholder="Nome (ex.: Nubank, Inter, C6…)" style="text-align:left" autocomplete="off"></div>
+      <div class="row"><input id="cnName" placeholder="Nome (ex.: Nubank, Inter, Pix Itaú…)" style="text-align:left" autocomplete="off"></div>
       <div class="swrow" id="cnColor"></div>
-      <div class="row" style="border:0;padding-top:0"><button class="btn" id="cnAdd" style="margin:0">Adicionar cartão</button></div>
+      <div class="row" style="border:0;padding-top:0"><button class="btn" id="cnAdd" style="margin:0">Adicionar</button></div>
     </div>
-    <p class="note">Pix fica sempre disponível como forma de pagamento.</p>
+    <p class="note">Toque no selo do tipo (Crédito, Débito…) para trocar. Só o crédito aceita parcelas.</p>
     <h2>Categorias</h2>
     <div class="field" id="catEdit"></div>
     <div class="field"><div class="row">
@@ -537,16 +540,17 @@ const $$ = s => [...document.querySelectorAll(s)];
 const MESES = ["janeiro","fevereiro","março","abril","maio","junho","julho","agosto","setembro","outubro","novembro","dezembro"];
 const MES3 = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
 // Cards are configured by each person in Ajustes; "outro" is the fixed Pix option.
-const DEFAULT_CARDS = [{id:"itau",n:"Itaú",t:"credito",c:"s2"},{id:"bradesco",n:"Bradesco",t:"credito",c:"s1"}];
-const TIPO = {credito:"Crédito", debito:"Débito"};
-const REMOVED = {n:"Cartão removido", c:"var(--outro)", t:null};
+const PIX_PADRAO = {id:"outro",n:"Pix",t:"pix",c:null};
+const DEFAULT_CARDS = [{id:"itau",n:"Itaú",t:"credito",c:"s2"},{id:"bradesco",n:"Bradesco",t:"credito",c:"s1"},{...PIX_PADRAO}];
+const TIPO = {credito:"Crédito", debito:"Débito", pix:"Pix", boleto:"Boleto", saque:"Saque"};
+const TIPO_ORDER = Object.keys(TIPO);
+const REMOVED = {n:"Forma removida", c:"var(--outro)", t:null};
 let PAY = {}, PAY_ORDER = [];
 function rebuildPay(){
   const o = {};
   state.cards.forEach(k => { o[k.id] = {n:k.n, c:`var(--${k.c||"outro"})`, t:k.t, slot:k.c}; });
-  o.outro = {n:"Pix", c:"var(--outro)", t:"pix"};
   PAY = new Proxy(o, {get:(t,k)=> t[k] || REMOVED});
-  PAY_ORDER = [...state.cards.map(k=>k.id), "outro"];
+  PAY_ORDER = state.cards.map(k=>k.id);
 }
 const inkFor = p => (p==="outro" || ["s4","s5"].includes(PAY[p].slot)) ? "#1a1a19" : "#fff";
 const SLOTS = ["s1","s2","s3","s4","s5","s6","s7","s8"];
@@ -573,8 +577,22 @@ let curY = now.getFullYear(), curM = now.getMonth(), gY = now.getFullYear();
 let payFilter = "all", boxFilter = "all", yCardF = "all", view = "mes";
 
 const LS_KEY = "gastosAmor.v1";
+const PIX_MIG = "gastosAmor.pixMig";
+function ensurePix(){
+  let done = false; try{ done = localStorage.getItem(PIX_MIG)==="1"; }catch(e){}
+  if (done) return;
+  if (!state.cards.find(k=>k.id==="outro")){
+    // if the person already created an empty "Pix", merge it into the built-in one (keeping its colour and place)
+    const i = state.cards.findIndex(k => k.t==="pix" && String(k.n).trim().toLowerCase()==="pix" && !state.expenses.some(e=>e.pag===k.id));
+    if (i >= 0) state.cards[i] = {...PIX_PADRAO, c: state.cards[i].c};
+    else state.cards.push({...PIX_PADRAO});
+    lsSave();
+  }
+  try{ localStorage.setItem(PIX_MIG,"1"); }catch(e){}
+  rebuildPay();
+}
 function ensureCats(){ if (!state.cats.find(c=>c.id==="assin")) state.cats.push({id:"assin",n:"Assinaturas",e:"🔁",c:null}); }
-function lsLoad(){ try{ const j = JSON.parse(localStorage.getItem(LS_KEY)||"null"); if (j){ state.expenses = j.expenses||[]; state.incomes = j.incomes||[]; if (j.cats && j.cats.length) state.cats = j.cats; if (Array.isArray(j.cards)) state.cards = j.cards; if (Array.isArray(j.boxes)) state.boxes = j.boxes; } }catch(e){} rebuildPay(); ensureCats(); }
+function lsLoad(){ try{ const j = JSON.parse(localStorage.getItem(LS_KEY)||"null"); if (j){ state.expenses = j.expenses||[]; state.incomes = j.incomes||[]; if (j.cats && j.cats.length) state.cats = j.cats; if (Array.isArray(j.cards)) state.cards = j.cards; if (Array.isArray(j.boxes)) state.boxes = j.boxes; } }catch(e){} rebuildPay(); ensurePix(); ensureCats(); }
 function lsSave(){ try{ localStorage.setItem(LS_KEY, JSON.stringify({expenses:state.expenses,incomes:state.incomes,cats:state.cats,cards:state.cards,boxes:state.boxes})); }catch(e){} }
 const LISTS = {exp:"expenses", inc:"incomes"};
 
@@ -616,7 +634,7 @@ lsLoad();
       if (!col) return;
       const exps = [], incs = []; let cats = null;
       snap.docs.forEach(d => { const v = d.data(); if (!v) return;
-        if (v.kind === "config"){ cats = v.cats; if (Array.isArray(v.cards)){ state.cards = v.cards; rebuildPay(); } if (Array.isArray(v.boxes)) state.boxes = v.boxes; }
+        if (v.kind === "config"){ cats = v.cats; if (Array.isArray(v.cards)){ state.cards = v.cards; if (!state.cards.find(k=>k.id==="outro") && state.expenses.concat(exps).some(e=>e.pag==="outro") && !v.pixRemoved) state.cards.push({...PIX_PADRAO}); rebuildPay(); } if (Array.isArray(v.boxes)) state.boxes = v.boxes; }
         else if (v.kind === "exp") { const {kind, ...rest} = v; exps.push(rest); }
         else if (v.kind === "inc") { const {kind, ...rest} = v; incs.push(rest); } });
       if (first && !snap.metadata.fromCache){
@@ -720,11 +738,9 @@ function renderMonth(al, il){
   $("#mCards").innerHTML = state.cards.map(k => k.id).map(p => {
     const v = by(p), pct = total? Math.round(v/total*100):0;
     return `<button class="cc ${payFilter===p?'on':''}" data-pf="${p}"><span class="bar" style="background:${PAY[p].c}"></span>
-      <div class="n"><span class="dot" style="background:${PAY[p].c}"></span>${esc(PAY[p].n)}<span class="tipo">${TIPO[PAY[p].t]||""}</span></div>
+      <div class="n"><span class="dot" style="background:${PAY[p].c}"></span>${esc(PAY[p].n)}<span class="tipo">${TIPO[PAY[p].t] && TIPO[PAY[p].t]!==PAY[p].n ? TIPO[PAY[p].t] : ""}</span></div>
       <div class="v num">${brl(v)}</div><div class="p">${pct}% do mês</div></button>`;
   }).join("");
-  const o = by("outro");
-  $("#mOther").innerHTML = `<button data-pf="outro" style="font-weight:${payFilter==='outro'?700:400}"><span class="dot" style="background:var(--outro)"></span> Pix</button><b class="num">${brl(o)}</b>`;
 
   // entradas do mês (transferências entre caixinhas não contam como entrada)
   const mi = monthAlloc(curY,curM,il), entr = sum(mi.filter(x=>!x.i.de));
@@ -1054,7 +1070,7 @@ function matchQ(e){ if (!lf.q) return true; const q = norm(lf.q); return norm(e.
 function matchPC(e){ return (lf.pay==="all" || e.pag===lf.pay) && (lf.box==="all" || e.box===lf.box) && (!lf.cats.size || lf.cats.has(e.cat)); }
 function renderLista(al){
   // filter chips
-  $("#lPay").innerHTML = [["all","Todos os cartões",null],...PAY_ORDER.map(p=>[p,PAY[p].n,PAY[p].c])].map(([k,n,c]) =>
+  $("#lPay").innerHTML = [["all","Todas as formas",null],...PAY_ORDER.map(p=>[p,PAY[p].n,PAY[p].c])].map(([k,n,c]) =>
     `<button class="chip ${lf.pay===k?'on':''}" data-lpay="${k}">${c?`<span class="dot" style="background:${c}"></span>`:''}${esc(n)}</button>`).join("");
   $("#lCat").innerHTML = `<button class="chip ${!lf.cats.size?'on':''}" data-lcat="*">Todas as categorias</button>` +
     state.cats.map(c=>`<button class="chip ${lf.cats.has(c.id)?'on':''}" data-lcat="${esc(c.id)}"><span class="dot" style="background:${catColor(c)}"></span>${c.e} ${esc(c.n)}</button>`).join("");
@@ -1150,7 +1166,7 @@ function renderCards(){
     <input data-kname="${i}" value="${esc(k.n)}" style="text-align:left">
     <button class="tbtn" data-ktipo="${i}">${TIPO[k.t]}</button>
     <button class="del" data-kdel="${i}">Remover</button></div>`).join("")
-    : `<div class="row faint" style="font-size:14px">Nenhum cartão cadastrado. Adicione abaixo.</div>`;
+    : `<div class="row faint" style="font-size:14px">Nenhuma forma de pagamento cadastrada. Adicione abaixo.</div>`;
   $$("#cnTipo .tipocard").forEach(b=>b.classList.toggle("on", b.dataset.t===cnTipo));
   if (!cnSlot){ const used = state.cards.map(k=>k.c); cnSlot = CARD_SLOTS.find(x=>!used.includes(x)) || "s1"; }
   $("#cnColor").innerHTML = CARD_SLOTS.map(x=>`<button class="swatch ${x===cnSlot?'on':''}" data-sl="${x}" style="background:var(--${x})" aria-label="Cor"></button>`).join("");
@@ -1160,20 +1176,22 @@ $("#cnTipo").addEventListener("click", e => { const b=e.target.closest("[data-t]
 $("#cnColor").addEventListener("click", e => { const b=e.target.closest("[data-sl]"); if(!b) return; cnSlot=b.dataset.sl; renderCards(); });
 $("#cnAdd").addEventListener("click", async () => {
   const n = $("#cnName").value.trim();
-  if (!n){ toast("Digite o nome do cartão"); $("#cnName").focus(); return; }
-  state.cards.push({id:"k"+Date.now().toString(36), n, t:cnTipo, c:cnSlot});
+  // boleto / saque / pix may go without a name: use the type
+  const nome = n || (cnTipo==="credito"||cnTipo==="debito" ? "" : TIPO[cnTipo]);
+  if (!nome){ toast("Digite o nome do cartão"); $("#cnName").focus(); return; }
+  state.cards.push({id:"k"+Date.now().toString(36), n:nome, t:cnTipo, c:cnSlot});
   $("#cnName").value=""; cnSlot=null; cnTipo="credito";
-  await saveCards(); toast(`Cartão “${n}” adicionado`);
+  await saveCards(); toast(`“${nome}” adicionado`);
 });
 $("#cardEdit").addEventListener("click", async e => {
   const t = e.target.closest("[data-ktipo]");
-  if (t){ const k = state.cards[+t.dataset.ktipo]; k.t = k.t==="credito" ? "debito" : "credito"; await saveCards(); return; }
+  if (t){ const k = state.cards[+t.dataset.ktipo]; k.t = TIPO_ORDER[(TIPO_ORDER.indexOf(k.t)+1) % TIPO_ORDER.length]; await saveCards(); return; }
   const c = e.target.closest("[data-kcol]");
   if (c){ const k = state.cards[+c.dataset.kcol]; k.c = CARD_SLOTS[(CARD_SLOTS.indexOf(k.c)+1) % CARD_SLOTS.length]; await saveCards(); return; }
   const d = e.target.closest("[data-kdel]");
   if (d){ const i=+d.dataset.kdel, k=state.cards[i]; const n = state.expenses.filter(x=>x.pag===k.id).length;
-    ask(n ? `Remover “${k.n}”? ${n} gasto${n>1?'s':''} lançado${n>1?'s':''} nele ficam no histórico como “Cartão removido”.` : `Remover o cartão “${k.n}”?`,
-      async () => { state.cards.splice(i,1); await saveCards(); toast("Cartão removido"); }); }
+    ask(n ? `Remover “${k.n}”? ${n} gasto${n>1?'s':''} lançado${n>1?'s':''} nele ficam no histórico como “Forma removida”.` : `Remover “${k.n}”?`,
+      async () => { state.cards.splice(i,1); await saveCards(); toast("Removido"); }); }
 });
 let cardT=null;
 $("#cardEdit").addEventListener("input", e => { const i = e.target.dataset.kname; if (i===undefined) return;
@@ -1367,7 +1385,7 @@ function syncSheet(){
   else { $("#boxALab").textContent = "Sai da caixinha"; $("#fBoxA").innerHTML = boxChips(fFrom, "bfrom", false); $("#fBoxB").innerHTML = boxChips(fTo, "bto", false); }
   $("#boxBLab").style.display = $("#fBoxB").style.display = fKind==="transf" ? "" : "none";
   const opts = [...PAY_ORDER]; if (!opts.includes(fPay)) opts.unshift(fPay); // keep a removed card visible when editing
-  $("#fPay").innerHTML = opts.map(p => `<button data-p="${esc(p)}" class="${p===fPay?'on':''}"><span class="sw" style="background:${PAY[p].c}"></span><b>${esc(PAY[p].n)}</b><small>${p==="outro"?"à vista":TIPO[PAY[p].t]||""}</small></button>`).join("");
+  $("#fPay").innerHTML = opts.map(p => `<button data-p="${esc(p)}" class="${p===fPay?'on':''}"><span class="sw" style="background:${PAY[p].c}"></span><b>${esc(PAY[p].n)}</b><small>${(TIPO[PAY[p].t] && TIPO[PAY[p].t]!==PAY[p].n ? TIPO[PAY[p].t] : "&nbsp;")}</small></button>`).join("");
   $("#fRec").classList.toggle("on", fRec); $("#fRec").setAttribute("aria-checked", fRec);
   $("#recEndRow").style.display = fRec ? "flex" : "none";
   if (fRec) fParc = 1;
