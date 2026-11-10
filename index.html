@@ -247,7 +247,8 @@ h2{font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--text
 .frow .fmain span{font-size:14px;color:var(--text-2)}.frow .fmain span small{display:block;font-size:12px;color:var(--text-3)}
 .frow .fmain span small i{font-style:normal;color:var(--accent)}
 .frow.atual .fmain span{color:var(--text);font-weight:600}
-.frow .fmain b{font-size:16px}.frow .fmain b::after{content:" ›";color:var(--text-3);font-weight:400}
+.frow .fmain b{font-size:16px;white-space:nowrap;flex:none;margin-left:8px}
+.frow .fmain span{min-width:0}.frow .fmain b::after{content:" ›";color:var(--text-3);font-weight:400}
 .frow b::after{content:none}
 .fedit{width:34px;height:34px;border-radius:50%;background:var(--surface-2);color:var(--text-2);font-size:15px;flex:none}
 .mfrow{display:flex;flex-direction:column;gap:8px;padding:0 16px 14px}
@@ -941,7 +942,7 @@ function renderFaturas(al){
     return `<div class="card fat"><div class="fh"><span class="dot" style="background:${PAY[k.id].c}"></span><b>Fatura ${esc(k.n)}</b><button class="link" data-fatcal="${esc(k.id)}" style="margin-left:auto;font-size:13px">📅 Datas de cada mês</button></div>` +
       (hoje <= ant.venc ? row(ant, "Fechada · a pagar", `${brD(ant.ini)} a ${brD(ant.fim)} · vence ${brD(ant.venc)}`) : "") +
       row(atual, "Atual (aberta)", `${brD(atual.ini)} a ${brD(atual.fim)} · vence ${brD(atual.venc)}`, "atual") +
-      row(prox, "Próxima", `${brD(prox.ini)} a ${brD(prox.fim)} · lançado até hoje + parcelas`) + `</div>`;
+      row(prox, "Próxima", `${brD(prox.ini)} a ${brD(prox.fim)} · até hoje + parcelas`) + `</div>`;
   }).join("");
 }
 // list of the coming invoices so the closing/due date can be chosen month by month
