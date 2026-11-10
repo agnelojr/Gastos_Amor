@@ -218,6 +218,9 @@ h2{font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--text
 .swatch.on{border-color:var(--text)}
 .cardrow .tbtn{font-size:12px;font-weight:600;padding:5px 9px;border-radius:8px;background:var(--surface-2);color:var(--text-2);flex:none}
 .cardrow .dotbtn{width:22px;height:22px;border-radius:7px;flex:none}
+.recacts{grid-template-columns:1fr !important}
+.recacts button{border-left:0 !important;border-top:1px solid var(--line);color:var(--danger) !important;font-weight:500 !important}
+.recacts button#mrNo{color:var(--accent) !important;font-weight:600 !important}
 .err{color:var(--danger);font-size:14px;text-align:center;min-height:18px;margin-top:8px}
 
 /* settings */
@@ -505,6 +508,14 @@ textarea.csv{width:100%;height:120px;border-radius:12px;border:1px solid var(--l
 </div>
 
 <div class="modal" id="modal2"><div class="box"><p id="m2Text"></p><div class="acts" style="grid-template-columns:1fr"><button id="m2Rep" style="color:var(--danger);font-weight:600">Substituir tudo</button><button id="m2Mer" style="border-left:0;border-top:1px solid var(--line);color:var(--accent);font-weight:600">Juntar com os atuais</button><button id="m2No" style="border-left:0;border-top:1px solid var(--line);color:var(--text-2);font-weight:400">Cancelar</button></div></div></div>
+<div class="modal" id="modalRec"><div class="box"><p id="mrText"></p>
+  <div class="acts recacts">
+    <button id="mrOne">Só a deste mês</button>
+    <button id="mrFut">Esta e as próximas</button>
+    <button id="mrAll">Todas, inclusive as anteriores</button>
+    <button id="mrNo">Cancelar</button>
+  </div>
+  <p class="faint" style="font-size:12px;padding:0 16px 12px;margin:0">“Esta e as próximas” mantém os meses anteriores no seu controle.</p></div></div>
 <div class="modal" id="modal"><div class="box"><p id="mText"></p><div class="acts"><button id="mNo">Cancelar</button><button id="mYes">Confirmar</button></div></div></div>
 <div class="toast" id="toast"></div>
 
@@ -630,8 +641,10 @@ function allocations(){
       const t0 = Y*12 + (M-1);
       let tEnd = horizon;
       if (e.fim){ const [fy,fm] = e.fim.split("-").map(Number); tEnd = Math.min(tEnd, fy*12 + fm-1); }
+      const skip = Array.isArray(e.skip) ? e.skip : [];
       for (let t=t0; t<=tEnd; t++){
         const y=Math.floor(t/12), m=t%12, last=new Date(y,m+1,0).getDate();
+        if (skip.includes(`${y}-${String(m+1).padStart(2,"0")}`)) continue;
         out.push({e, y, m, val:e.valor, k:1, n:1, rec:true, fut: t>nowT,
           d:`${y}-${String(m+1).padStart(2,"0")}-${String(Math.min(D,last)).padStart(2,"0")}`});
       }
@@ -662,8 +675,10 @@ function incAllocs(){
     const [Y,M,D] = i.data.split("-").map(Number), t0 = Y*12 + (M-1);
     let tEnd = i.rec ? horizon : t0;
     if (i.rec && i.fim){ const [fy,fm] = i.fim.split("-").map(Number); tEnd = Math.min(tEnd, fy*12 + fm-1); }
+    const skip = i.rec && Array.isArray(i.skip) ? i.skip : [];
     for (let t=t0; t<=tEnd; t++){
       const y=Math.floor(t/12), m=t%12, last=new Date(y,m+1,0).getDate();
+      if (skip.includes(`${y}-${String(m+1).padStart(2,"0")}`)) continue;
       out.push({i, y, m, val:i.valor, rec:!!i.rec, fut: t>nowT, d: t===t0 ? i.data : isoOf(y,m,Math.min(D,last))});
     }
   }
@@ -749,7 +764,7 @@ function renderInc(items){
   el.innerHTML = `<div class="list">` + sorted.map(x => { const to = boxById(x.i.box), fr = x.i.de ? boxById(x.i.de) : null;
     const dd = x.d.slice(8)+"/"+x.d.slice(5,7);
     const rec = x.rec ? (x.d > hoje ? " · 🔁 previsto" : " · 🔁 mensal") : "";
-    return `<button class="item" data-iedit="${esc(x.i.id)}">
+    return `<button class="item" data-iedit="${esc(x.i.id)}" data-ym="${x.y}-${String(x.m+1).padStart(2,"0")}">
       <span class="ico" style="background:color-mix(in srgb, ${catColor(fr ? null : to)} 18%, transparent)">${fr ? "↔️" : to.e}</span>
       <span class="t"><b>${esc(x.i.desc || (fr ? "Transferência" : "Entrada"))}</b><span class="tag">${dd} · ${fr ? `${fr.e} ${esc(fr.n)} → ` : "→ "}${to.e} ${esc(to.n)}${rec}</span></span>
       <span class="a num ${fr ? '' : 'pos'}">${fr ? '' : '+'}${brl(x.val)}</span></button>`; }).join("")
@@ -766,7 +781,7 @@ function renderRec(items){
   const tot = sum(rec), by = p => sum(rec.filter(a=>a.e.pag===p));
   el.innerHTML = `<div class="list">` + rec.map(a => { const c = catById(a.e.cat);
     const fim = a.e.fim ? ` · até ${MES3[+a.e.fim.slice(5)-1]}/${a.e.fim.slice(2,4)}` : "";
-    return `<button class="item" data-edit="${esc(a.e.id)}">
+    return `<button class="item" data-edit="${esc(a.e.id)}" data-ym="${a.y}-${String(a.m+1).padStart(2,"0")}">
       <span class="ico" style="background:color-mix(in srgb, ${catColor(c)} 18%, transparent)">${c.e}</span>
       <span class="t"><b>${esc(a.e.desc || c.n)}</b><span class="tag"><span class="dot" style="background:${PAY[a.e.pag]?.c};width:8px;height:8px"></span>${PAY[a.e.pag]?.n} · dia ${+a.d.slice(8)}${fim}</span></span>
       <span class="a num">${brl(a.val)}<small>/mês</small></span></button>`; }).join("") +
@@ -802,7 +817,7 @@ function renderList(el, items, grouped){
     let t = g.key;
     if (!t.startsWith("P")){ const d = new Date(t+"T12:00:00"); t = d.toLocaleDateString("pt-BR",{weekday:"long",day:"numeric",month:"long"}); t = t.charAt(0).toUpperCase()+t.slice(1); }
     return `<div class="day">${esc(t)}</div><div class="list">` + g.items.map(a => { const c = catById(a.e.cat);
-      return `<button class="item" data-edit="${esc(a.e.id)}">
+      return `<button class="item" data-edit="${esc(a.e.id)}" data-ym="${a.y}-${String(a.m+1).padStart(2,"0")}">
         <span class="ico" style="background:color-mix(in srgb, ${catColor(c)} 18%, transparent)">${c.e}</span>
         <span class="t"><b>${esc(a.e.desc || c.n)}</b><span class="tag"><span class="dot" style="background:${PAY[a.e.pag]?.c||'var(--outro)'};width:8px;height:8px"></span>${PAY[a.e.pag]?.n||''} · ${a.rec?(a.fut?'🔁 previsto':'🔁 mensal'):esc(c.n)}${a.e.box?` · ${boxById(a.e.box).e}`:''}</span></span>
         <span class="a num">${brl(a.val)}${a.n>1?`<small>${a.k}/${a.n} de ${brl(a.e.valor)}</small>`:''}</span></button>`;
@@ -994,7 +1009,7 @@ function renderLista(al){
     return `<div class="mhead"><b>${MESES[m]} ${y}</b><span class="num">${brl(sum(arr))}</span></div><div class="list">` +
       arr.map(x => { const c = catById(x.e.cat); const dd = x.d.slice(8)+"/"+x.d.slice(5,7);
         const extra = x.n>1 ? ` · ${x.k}/${x.n}` : x.rec ? " · 🔁" : "";
-        return `<button class="item" data-edit="${esc(x.e.id)}">
+        return `<button class="item" data-edit="${esc(x.e.id)}" data-ym="${x.y}-${String(x.m+1).padStart(2,"0")}">
           <span class="ico" style="background:color-mix(in srgb, ${catColor(c)} 18%, transparent)">${c.e}</span>
           <span class="t"><b>${esc(x.e.desc || c.n)}</b><span class="tag">${dd} · <span class="dot" style="background:${PAY[x.e.pag]?.c};width:8px;height:8px"></span>${PAY[x.e.pag]?.n} · ${esc(c.n)}${extra}</span></span>
           <span class="a num">${brl(x.val)}</span></button>`; }).join("") + `</div>`;
@@ -1181,8 +1196,8 @@ document.addEventListener("click", e => {
   const cf = e.target.closest("[data-clearf]"); if (cf){ payFilter = "all"; boxFilter = "all"; render(); return; }
   const bf = e.target.closest("[data-bf]"); if (bf){ const b = bf.dataset.bf; boxFilter = boxFilter===b ? "all" : b; render(); return; }
   const gb = e.target.closest("[data-goboxes]"); if (gb){ go("aj"); setTimeout(()=>{ $("#boxNew").scrollIntoView({behavior:"smooth",block:"center"}); $("#bnName").focus(); }, 80); return; }
-  const ed = e.target.closest("[data-edit]"); if (ed){ openSheet(state.expenses.find(x=>x.id===ed.dataset.edit)); return; }
-  const ie = e.target.closest("[data-iedit]"); if (ie){ const i = state.incomes.find(x=>x.id===ie.dataset.iedit); if (i) openSheet(i, i.de ? "transf" : "ent"); return; }
+  const ed = e.target.closest("[data-edit]"); if (ed){ openSheet(state.expenses.find(x=>x.id===ed.dataset.edit), "gasto", ed.dataset.ym); return; }
+  const ie = e.target.closest("[data-iedit]"); if (ie){ const i = state.incomes.find(x=>x.id===ie.dataset.iedit); if (i) openSheet(i, i.de ? "transf" : "ent", ie.dataset.ym); return; }
   const cd = e.target.closest("[data-cdel]"); if (cd){ const i=+cd.dataset.cdel; const c=state.cats[i];
     const used = state.expenses.some(x=>x.cat===c.id);
     ask(used ? `Remover “${c.n}”? Os gastos desta categoria ficarão como “Sem categoria”.` : `Remover a categoria “${c.n}”?`, async () => { state.cats.splice(i,1); await store.saveCats(); }); return; }
@@ -1222,7 +1237,9 @@ function lastBox(){
   return e ? e.box : (state.boxes[0]?.id || null);
 }
 const KIND_TITLE = {gasto:["Novo gasto","Editar gasto"], ent:["Nova entrada","Editar entrada"], transf:["Nova transferência","Editar transferência"]};
-function openSheet(e, kind="gasto"){
+let editYM = null; // month of the occurrence that was tapped (for recurring items)
+function openSheet(e, kind="gasto", ym){
+  editYM = ym || `${curY}-${String(curM+1).padStart(2,"0")}`;
   editing = e || null; fKind = kind; editKind = kind==="gasto" ? "exp" : "inc";
   $("#sDel").style.display = e ? "block" : "none";
   $("#fVal").value = e ? fmtInput(e.valor) : "";
@@ -1240,7 +1257,7 @@ function openSheet(e, kind="gasto"){
   }
   fRec = !!(e && e.rec);
   $("#fFim").value = e?.fim || "";
-  $("#sEnd").style.display = e && e.rec ? "block" : "none";
+  $("#sEnd").style.display = "none";
   $("#sEnd").textContent = kind==="gasto" ? "Encerrar assinatura neste mês" : "Parar de repetir a partir deste mês";
   $("#fErr").textContent = "";
   $("#ncBox").style.display = "none";
@@ -1339,6 +1356,7 @@ $("#sSave").addEventListener("click", async () => {
   if (!valor) return err(fKind==="gasto" ? "Informe o valor do gasto." : "Informe o valor.");
   const data = $("#fData").value || todayISO();
   const base = { id: editing?.id || uid(), valor, desc: $("#fDesc").value.trim(), data, criado: editing?.criado || Date.now() };
+  if (fRec && Array.isArray(editing?.skip) && editing.skip.length) base.skip = editing.skip.slice();
   if (fRec){ base.rec = true; const fim = $("#fFim").value; if (fim){ if (fim < data.slice(0,7)) return err("O mês final é antes do início."); base.fim = fim; } }
   let rec, kind;
   if (fKind==="gasto"){
@@ -1360,7 +1378,28 @@ $("#sSave").addEventListener("click", async () => {
   const msg = {gasto:["Gasto salvo","Gasto atualizado"], ent:["Entrada salva","Entrada atualizada"], transf:["Transferência salva","Transferência atualizada"]}[fKind][editing?1:0];
   try{ await store.put(rec, kind); toast(msg); } catch(e){ toast("Não foi possível salvar"); }
 });
+const ymLabel = ym => { const [y,m] = ym.split("-").map(Number); return `${MESES[m-1]} de ${y}`; };
+const ymPrev = ym => { let [y,m] = ym.split("-").map(Number); m -= 1; if (m<1){ m=12; y--; } return `${y}-${String(m).padStart(2,"0")}`; };
+async function delRec(mode){
+  $("#modalRec").classList.remove("on");
+  const e = editing; if (!e) return; const kind = editKind, ym = editYM, inicio = e.data.slice(0,7);
+  closeSheet();
+  try{
+    if (mode==="all" || (mode==="fut" && ym <= inicio)){ await store.del(e.id, kind); toast("Excluído de todos os meses"); return; }
+    if (mode==="one"){ const skip = Array.from(new Set([...(e.skip||[]), ym])).sort(); await store.put({...e, skip}, kind); toast(`Excluído só em ${ymLabel(ym)}`); return; }
+    if (mode==="fut"){ await store.put({...e, fim: ymPrev(ym)}, kind); toast(`Excluído de ${ymLabel(ym)} em diante`); return; }
+  }catch(err){ toast("Não foi possível excluir"); }
+}
+$("#mrOne").addEventListener("click", ()=>delRec("one"));
+$("#mrFut").addEventListener("click", ()=>delRec("fut"));
+$("#mrAll").addEventListener("click", ()=>delRec("all"));
+$("#mrNo").addEventListener("click", ()=>$("#modalRec").classList.remove("on"));
 $("#sDel").addEventListener("click", () => { const id = editing?.id; if (!id) return; const kind = editKind;
+  if (editing.rec){
+    $("#mrText").innerHTML = `<b>${esc(editing.desc || (kind==="exp" ? "Assinatura" : "Lançamento"))}</b> repete todo mês. O que você quer excluir?`;
+    $("#mrOne").textContent = `Só a de ${ymLabel(editYM)}`;
+    $("#modalRec").classList.add("on"); return;
+  }
   ask("Excluir este lançamento?", async () => { closeSheet(); try{ await store.del(id, kind); toast("Excluído"); }catch(e){ toast("Não foi possível excluir"); } }); });
 
 /* ---------------- tiny ui helpers ---------------- */
