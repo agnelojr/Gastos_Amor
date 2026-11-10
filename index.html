@@ -472,7 +472,7 @@ h2{color:var(--accent) !important;opacity:.85}
       <div class="chart" id="chFix"></div>
       <div class="note" id="noteFix" style="margin:8px 0 0"></div>
     </div>
-    <h2>Categorias no ano</h2>
+    <h2>Categorias no ano <span style="text-transform:none;letter-spacing:0;font-weight:400">· toque para ver os itens</span></h2>
     <div class="card">
       <div class="hscroll" id="yCardFilter" style="margin-bottom:4px"></div>
       <div id="yCats"></div>
@@ -1107,7 +1107,7 @@ function renderCatBars(el, items, opts={}){
     if (pc === 0) return `<span class="cmp eq">= 0%</span>`;
     return `<span class="cmp ${pc>0?'up':'down'}" title="antes: ${brl(b)}">${pc>0?'▲':'▼'} ${Math.abs(pc)}%</span>`;
   };
-  const goA = id => opts.go ? ` data-catgo="${esc(id)}" role="button"` : "";
+  const goA = id => opts.go ? ` data-catgo="${esc(id)}" data-scope="${opts.go==="y"?"y":"m"}" role="button"` : "";
   const html = rows.map(([id,v]) => { const c = catById(id);
     const L = opts.lim && c.lim > 0 ? c.lim : 0;
     if (!L) return `<div class="catrow${opts.go?" go":""}"${goA(id)}><div class="nm"><span>${c.e}</span>${esc(c.n)}${cmpOf(id)}</div>
@@ -1335,7 +1335,7 @@ function renderCharts(al){
     `<button class="chip ${yCardF===k?'on':''}" data-f="${k}">${c?`<span class="dot" style="background:${c}"></span>`:''}${esc(n)}</button>`).join("");
   // only what was actually spent up to today (planned subscriptions/installments don't count yet)
   const yi = al.filter(a=>a.y===gY && a.d <= hoje && (yCardF==="all" || a.e.pag===yCardF));
-  renderCatBars($("#yCats"), yi);
+  renderCatBars($("#yCats"), yi, {go:"y"});
   $("#noteYear").textContent = `Valores até a data de hoje (${hoje.split("-").reverse().join("/")}). O ano atual ainda está em andamento.`;
   $("#noteYCats").textContent = isCur ? `Valores até a data de hoje (${hoje.split("-").reverse().join("/")}). Assinaturas e parcelas futuras ainda não entram.`
     : isFut ? "" : `Ano completo de ${gY}.`;
@@ -1611,9 +1611,11 @@ document.addEventListener("click", e => {
   const bf = e.target.closest("[data-bf]"); if (bf){ const b = bf.dataset.bf; boxFilter = boxFilter===b ? "all" : b; render(); return; }
   const gb = e.target.closest("[data-goboxes]"); if (gb){ go("aj"); setTimeout(()=>{ $("#boxNew").scrollIntoView({behavior:"smooth",block:"center"}); $("#bnName").focus(); }, 80); return; }
   const cg = e.target.closest("[data-catgo]"); if (cg){
-    const ym = `${curY}-${String(curM+1).padStart(2,"0")}`, ini = ym+"-01", fim = ym+"-"+String(new Date(curY,curM+1,0).getDate()).padStart(2,"0");
+    const isY = cg.dataset.scope==="y", ym = `${curY}-${String(curM+1).padStart(2,"0")}`;
+    const ini = isY ? `${gY}-01-01` : ym+"-01";
+    const fim = isY ? [`${gY}-12-31`, todayISO()].sort()[0] : ym+"-"+String(new Date(curY,curM+1,0).getDate()).padStart(2,"0");
     lf.mode="gastos"; lf.per="custom"; lf.de=ini; lf.ate=fim; lf.fat=false; lf.q=""; $("#lq").value="";
-    lf.pay = payFilter; lf.box = boxFilter; lf.cats.clear(); lf.cats.add(cg.dataset.catgo);
+    lf.pay = isY ? yCardF : payFilter; lf.box = isY ? "all" : boxFilter; lf.cats.clear(); lf.cats.add(cg.dataset.catgo);
     $("#lDe").value=ini; $("#lAte").value=fim; go("lista");
     const lc=$("#lCat"), on=lc.querySelector(".chip.on"); if (on) lc.scrollLeft = on.offsetLeft - lc.offsetLeft - 16; return; }
   const ed = e.target.closest("[data-edit]"); if (ed){ openSheet(state.expenses.find(x=>x.id===ed.dataset.edit), "gasto", ed.dataset.ym); return; }
