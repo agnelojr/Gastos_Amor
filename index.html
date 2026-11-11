@@ -1014,12 +1014,24 @@ function renderFaturas(al){
   const hoje = todayISO();
   const isNow = curY===now.getFullYear() && curM===now.getMonth();
   const creds = state.cards.filter(k=>k.t==="credito");
-  if (!isNow || !creds.length){ el.innerHTML = ""; return; }
+  if (!creds.length){ el.innerHTML = ""; return; }
   const cfg = creds.filter(k=>k.fech && k.venc);
   if (!cfg.length){
     el.innerHTML = `<div class="fathint">💳 <span>Coloque o dia de fechamento e vencimento dos cartões para ver as faturas aqui.</span><button class="link strong" data-goaj>Ajustes</button></div>`; return;
   }
   el.innerHTML = cfg.map(k => {
+    if (!isNow){
+      // other months: the invoice that falls due in the month on screen
+      const ymS = `${curY}-${String(curM+1).padStart(2,"0")}`;
+      const f = [-2,-1,0,1].map(d => fatura(k,...addM(curY,curM,d))).find(f => f.venc.slice(0,7)===ymS);
+      if (!f) return "";
+      const contaF = a => a.d <= hoje || a.n > 1;
+      const totF = sum(al.filter(a => a.e.pag===k.id && a.d >= f.ini && a.d <= f.fim && contaF(a)));
+      const nome = f.venc < hoje ? "Venceu " + brD(f.venc) : (f.fim < hoje ? "Fechada · vence " : "Aberta · vence ") + brD(f.venc);
+      const sub = `${brD(f.ini)} a ${brD(f.fim)}` + (f.fim > hoje ? " · até hoje + parcelas" : "");
+      return `<div class="card fat"><div class="fh"><span class="dot" style="background:${PAY[k.id].c}"></span><b>Fatura ${esc(k.n)}</b><button class="link" data-fatcal="${esc(k.id)}" style="margin-left:auto;font-size:13px">📅 Datas de cada mês</button></div>` +
+        `<div class="frow atual"><button class="fmain" data-fat="${esc(k.id)}|${f.ini}|${f.fim}"><span>${nome}<small>${sub}${f.ajustada?' · <i>datas ajustadas</i>':''}</small></span><b class="num">${brl(totF)}</b></button><button class="fedit" data-fatedit="${esc(k.id)}|${ymKeyF(f.y,f.m)}" aria-label="Ajustar datas desta fatura">✎</button></div></div>`;
+    }
     let [y,m] = [now.getFullYear(), now.getMonth()];
     if (hoje <= fatura(k,...addM(y,m,-1)).fim) [y,m] = addM(y,m,-1);
     else if (hoje > fatura(k,y,m).fim) [y,m] = addM(y,m,1);

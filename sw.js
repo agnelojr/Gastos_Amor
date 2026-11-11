@@ -1,6 +1,6 @@
 // Offline support. The app page is fetched fresh from the network first (so updates
 // show up right away) and the cached copy is used only when there is no internet.
-const CACHE = "gastos-amor-v25";
+const CACHE = "gastos-amor-v26";
 const FILES = ["./", "index.html", "manifest.webmanifest", "icon-180.png", "icon-192.png", "icon-512.png"];
 self.addEventListener("install", e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES.map(f => new Request(f, {cache: "reload"})))));
