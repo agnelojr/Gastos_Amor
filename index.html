@@ -365,6 +365,21 @@ body.lockbg{position:fixed;left:0;right:0;overflow:hidden}
 .descsug{display:flex;flex-wrap:wrap;gap:8px;padding:10px 14px;border-bottom:1px solid var(--line)}
 .descsug .chip{font-size:14px;background:var(--surface-2) !important;border:1px solid var(--line) !important;padding:7px 12px !important;color:var(--text) !important}
 .descsug .chip::before{content:"↺ ";color:var(--text-3)}
+
+/* Categorias no mês (donut) */
+.piehead{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+.piehead b{font-size:15px}
+.piewrap{position:relative;width:220px;max-width:70vw;margin:4px auto 10px}
+.piewrap svg{width:100%;height:auto;display:block}
+.piemid{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none}
+.piemid small{font-size:12px;color:var(--text-3)}
+.piemid b{font-size:16px}
+.pielab{font-size:12px;font-weight:700;fill:#fff;paint-order:stroke;stroke:rgba(0,0,0,.25);stroke-width:2px}
+.pieleg{display:flex;flex-direction:column}
+.pierow{display:grid;grid-template-columns:auto 1fr auto auto auto;gap:8px;align-items:center;padding:9px 2px;border-top:1px solid var(--line);text-align:left;width:100%}
+.pierow .pn{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pierow small{color:var(--text-3);font-size:12.5px}
+.pierow .chev{font-style:normal;color:var(--text-3)}
 </style>
 </head>
 <body>
@@ -483,6 +498,13 @@ body.lockbg{position:fixed;left:0;right:0;overflow:hidden}
       <div class="legend" id="lgFix"></div>
       <div class="chart" id="chFix"></div>
       <div class="note" id="noteFix" style="margin:8px 0 0"></div>
+    </div>
+    <h2>Categorias no mês <span style="text-transform:none;letter-spacing:0;font-weight:400">· em %</span></h2>
+    <div class="card">
+      <div class="piehead"><button class="iconbtn" data-piestep="-1" aria-label="Mês anterior">‹</button><b id="pieTitle"></b><button class="iconbtn" data-piestep="1" aria-label="Próximo mês">›</button></div>
+      <div class="piewrap"><svg id="pieSvg" viewBox="0 0 220 220" role="img"></svg><div class="piemid"><small>Total</small><b class="num" id="pieTot"></b></div></div>
+      <div id="pieLeg" class="pieleg"></div>
+      <div class="note" id="notePie" style="margin:8px 0 0"></div>
     </div>
     <h2>Categorias no ano <span style="text-transform:none;letter-spacing:0;font-weight:400">· toque para ver os itens</span></h2>
     <div class="card">
@@ -823,6 +845,30 @@ function allocations(){
     }
   }
   return out;
+}
+// "Categorias no mês": donut with each category's share of the month (only what was spent up to today)
+let pieY = now.getFullYear(), pieM = now.getMonth();
+function renderPie(al){
+  const hoje = todayISO(), ym = `${pieY}-${String(pieM+1).padStart(2,"0")}`;
+  const its = al.filter(a => ymKey(a.y,a.m)===ymKey(pieY,pieM) && a.d <= hoje);
+  const by = {}; its.forEach(a => by[a.e.cat] = (by[a.e.cat]||0) + a.val);
+  const rows = Object.entries(by).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]), tot = rows.reduce((s,[,v])=>s+v,0);
+  $("#pieTitle").textContent = MESES[pieM][0].toUpperCase()+MESES[pieM].slice(1)+" "+pieY;
+  $("#pieTot").textContent = brl(tot);
+  const svg = $("#pieSvg"); svg.setAttribute("aria-label", `Gastos por categoria em ${MESES[pieM]} ${pieY}`);
+  if (!tot){ svg.innerHTML = `<circle cx="110" cy="110" r="80" fill="none" stroke="var(--surface-2)" stroke-width="36"/>`; $("#pieLeg").innerHTML = `<div class="note" style="text-align:center">Nenhum gasto neste mês.</div>`; $("#notePie").textContent=""; return; }
+  const R = 80, C = 2*Math.PI*R; let acc = 0, segs = "", labs = "";
+  rows.forEach(([id,v]) => {
+    const c = catById(id), frac = v/tot, len = frac*C, col = c ? catColor(c) : "var(--outro)";
+    segs += `<circle cx="110" cy="110" r="${R}" fill="none" stroke="${col}" stroke-width="36" stroke-dasharray="${Math.max(len-1.5,0.5)} ${C}" stroke-dashoffset="${-acc}" transform="rotate(-90 110 110)"><title>${esc(c?c.n:"Outros")}: ${Math.round(frac*100)}%</title></circle>`;
+    if (frac >= .06){ const ang = (acc + len/2)/C*2*Math.PI - Math.PI/2; labs += `<text x="${110+R*Math.cos(ang)}" y="${110+R*Math.sin(ang)+4}" text-anchor="middle" class="pielab">${Math.round(frac*100)}%</text>`; }
+    acc += len;
+  });
+  svg.innerHTML = segs + labs;
+  $("#pieLeg").innerHTML = rows.map(([id,v]) => { const c = catById(id);
+    return `<button class="pierow" data-catgo="${esc(id)}" data-scope="p"><span class="dot" style="background:${c?catColor(c):"var(--outro)"}"></span><span class="pn">${c?c.e+" "+esc(c.n):"Outros"}</span><b class="num">${(v/tot*100).toLocaleString("pt-BR",{maximumFractionDigits:1})}%</b><small class="num">${brl(v)}</small><i class="chev">›</i></button>`; }).join("");
+  const isCurM = pieY===now.getFullYear() && pieM===now.getMonth();
+  $("#notePie").textContent = isCurM ? `Valores até hoje (${hoje.split("-").reverse().join("/")}). Toque numa categoria para ver os itens.` : "Toque numa categoria para ver os itens.";
 }
 function monthAlloc(y,m,al){ const key=ymKey(y,m); return al.filter(a=>ymKey(a.y,a.m)===key); }
 const sum = arr => arr.reduce((s,a)=>s+a.val,0);
@@ -1368,6 +1414,7 @@ function renderCharts(al){
   // only what was actually spent up to today (planned subscriptions/installments don't count yet)
   const yi = al.filter(a=>a.y===gY && a.d <= hoje && (yCardF==="all" || a.e.pag===yCardF));
   renderCatBars($("#yCats"), yi, {go:"y"});
+  renderPie(al);
   $("#noteYear").textContent = `Valores até a data de hoje (${hoje.split("-").reverse().join("/")}). O ano atual ainda está em andamento.`;
   $("#noteYCats").textContent = isCur ? `Valores até a data de hoje (${hoje.split("-").reverse().join("/")}). Assinaturas e parcelas futuras ainda não entram.`
     : isFut ? "" : `Ano completo de ${gY}.`;
@@ -1637,6 +1684,7 @@ function go(v){
 $$(".tab").forEach(t=>t.addEventListener("click", ()=>go(t.dataset.v)));
 document.addEventListener("click", e => {
   const ms = e.target.closest("[data-mstep]"); if (ms){ curM += +ms.dataset.mstep; if (curM<0){curM=11;curY--;} if (curM>11){curM=0;curY++;} render(); return; }
+  const ps = e.target.closest("[data-piestep]"); if (ps){ pieM += +ps.dataset.piestep; if (pieM<0){ pieM=11; pieY--; } if (pieM>11){ pieM=0; pieY++; } render(); return; }
   const ys = e.target.closest("[data-ystep]"); if (ys){ gY += +ys.dataset.ystep; render(); return; }
   // tapping a card on Mês opens Extrato with that card and the month on screen
   const ccGo = e.target.closest(".cc[data-pf]"); if (ccGo && ccGo.dataset.pf!=="all"){
@@ -1649,9 +1697,11 @@ document.addEventListener("click", e => {
   const bf = e.target.closest("[data-bf]"); if (bf){ const b = bf.dataset.bf; boxFilter = boxFilter===b ? "all" : b; render(); return; }
   const gb = e.target.closest("[data-goboxes]"); if (gb){ go("aj"); setTimeout(()=>{ $("#boxNew").scrollIntoView({behavior:"smooth",block:"center"}); $("#bnName").focus(); }, 80); return; }
   const cg = e.target.closest("[data-catgo]"); if (cg){
-    const isY = cg.dataset.scope==="y", ym = `${curY}-${String(curM+1).padStart(2,"0")}`;
+    const isY = cg.dataset.scope==="y", isP = cg.dataset.scope==="p";
+    const gy = isP ? pieY : curY, gm = isP ? pieM : curM, ym = `${gy}-${String(gm+1).padStart(2,"0")}`;
     const ini = isY ? `${gY}-01-01` : ym+"-01";
-    const fim = isY ? [`${gY}-12-31`, todayISO()].sort()[0] : ym+"-"+String(new Date(curY,curM+1,0).getDate()).padStart(2,"0");
+    const fimM = ym+"-"+String(new Date(gy,gm+1,0).getDate()).padStart(2,"0");
+    const fim = isY ? [`${gY}-12-31`, todayISO()].sort()[0] : isP ? [fimM, todayISO()].sort()[0] : fimM;
     lf.mode="gastos"; lf.per="custom"; lf.de=ini; lf.ate=fim; lf.fat=false; lf.q=""; $("#lq").value="";
     lf.pay = isY ? yCardF : payFilter; lf.box = isY ? "all" : boxFilter; lf.cats.clear(); lf.cats.add(cg.dataset.catgo);
     $("#lDe").value=ini; $("#lAte").value=fim; go("lista");
