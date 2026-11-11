@@ -353,6 +353,18 @@ h2{color:var(--accent) !important;opacity:.85}
 .catrow.go{cursor:pointer;-webkit-tap-highlight-color:transparent;border-radius:6px}
 .catrow.go:active{background:var(--surface-2)}
 .catrow .chev{font-style:normal;color:var(--text-3);margin-left:6px;font-weight:400}
+
+/* new-expense sheet: pinned header, no scroll bleed to the page behind, value caret at the end */
+body.lockbg{position:fixed;left:0;right:0;overflow:hidden}
+.scrim{touch-action:none}
+.sheet{overscroll-behavior:contain;-webkit-overflow-scrolling:touch;max-height:calc(100vh - env(safe-area-inset-top) - 24px) !important;max-height:calc(100dvh - env(safe-area-inset-top) - 24px) !important}
+.shead{position:sticky;top:-8px;z-index:3;background:var(--bg);margin:-8px -16px 8px;padding:12px 16px 8px;border-bottom:1px solid var(--line)}
+.amount input{caret-color:transparent}
+.amount input:focus{text-decoration:underline;text-decoration-color:var(--accent);text-decoration-thickness:3px;text-underline-offset:8px}
+.amthint{text-align:center;font-size:12.5px;color:var(--text-3);margin:-2px 0 4px}
+.descsug{display:flex;flex-wrap:wrap;gap:8px;padding:10px 14px;border-bottom:1px solid var(--line)}
+.descsug .chip{font-size:14px;background:var(--surface-2) !important;border:1px solid var(--line) !important;padding:7px 12px !important;color:var(--text) !important}
+.descsug .chip::before{content:"↺ ";color:var(--text-3)}
 </style>
 </head>
 <body>
@@ -587,9 +599,11 @@ h2{color:var(--accent) !important;opacity:.85}
     <button class="link strong" id="sSave">Salvar</button>
   </div>
   <div class="seg" id="fKind"><button data-k="gasto" class="on">Gasto</button><button data-k="ent">Entrada</button><button data-k="transf">Transferir</button></div>
-  <div class="amount"><span>R$</span><input id="fVal" inputmode="numeric" placeholder="0,00" autocomplete="off"></div>
+  <div class="amount"><span>R$</span><input id="fVal" inputmode="numeric" placeholder="0,00" autocomplete="off" enterkeyhint="next"></div>
+  <div class="amthint" id="amtHint">Digite só os números: 3096 vira 30,96</div>
   <div class="field">
-    <div class="row"><label for="fDesc">Descrição</label><input id="fDesc" placeholder="Ex.: Supermercado" autocomplete="off"></div>
+    <div class="row"><label for="fDesc">Descrição</label><input id="fDesc" placeholder="Ex.: Supermercado" autocomplete="off" enterkeyhint="done"></div>
+    <div class="descsug" id="descSug" style="display:none"></div>
     <div class="row"><label for="fData">Data</label><input id="fData" type="date"></div>
   </div>
   <div class="lab" id="payLab">Pago com</div>
@@ -1712,10 +1726,14 @@ function openSheet(e, kind="gasto", ym){
   $("#fErr").textContent = "";
   $("#ncBox").style.display = "none";
   syncSheet();
-  $("#scrim").classList.add("on"); $("#sheet").classList.add("on");
+  $("#scrim").classList.add("on"); $("#sheet").classList.add("on"); lockBg(); $("#sheet").scrollTop = 0;
+  $("#amtHint").style.display = e ? "none" : "block"; $("#descSug").style.display = "none";
   if (!e) setTimeout(()=>$("#fVal").focus(), 300);
 }
-function closeSheet(){ $("#scrim").classList.remove("on"); $("#sheet").classList.remove("on"); document.activeElement?.blur(); }
+function closeSheet(){ $("#scrim").classList.remove("on"); $("#sheet").classList.remove("on"); document.activeElement?.blur(); unlockBg(); }
+let bgY = 0;
+function lockBg(){ if (document.body.classList.contains("lockbg")) return; bgY = scrollY; document.body.style.top = -bgY + "px"; document.body.classList.add("lockbg"); }
+function unlockBg(){ if (!document.body.classList.contains("lockbg")) return; document.body.classList.remove("lockbg"); document.body.style.top = ""; scrollTo(0, bgY); }
 function boxChips(val, key, none){
   if (!state.boxes.length) return `<div class="note" style="margin:0 6px">Nenhuma caixinha criada ainda — crie em <b>Ajustes</b>.</div>`;
   return (none ? `<button class="chip ${!val?'on':''}" data-${key}="">Nenhuma</button>` : "")
@@ -1767,7 +1785,45 @@ function syncSheet(){
 }
 const fmtInput = cents => (cents/100).toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2});
 const parseInput = s => parseInt(String(s).replace(/\D/g,"")||"0",10);
-$("#fVal").addEventListener("input", e => { const c = parseInput(e.target.value); e.target.value = c ? fmtInput(c) : ""; });
+$("#fVal").addEventListener("input", e => { const c = parseInput(e.target.value); e.target.value = c ? fmtInput(c) : ""; caretEnd(e.target); });
+// keep the cursor after the last digit, so typing always fills the value from the right
+const caretEnd = el => { const n = el.value.length; try { el.setSelectionRange(n, n); } catch(_){} };
+["focus","click","keyup","select"].forEach(ev => $("#fVal").addEventListener(ev, e => setTimeout(()=>caretEnd(e.target), 0)));
+$("#fVal").addEventListener("keydown", e => { if (e.key === "Enter"){ e.preventDefault(); $("#fDesc").focus(); } });
+
+// description suggestions: past descriptions, most used first; picking one also fills category and card
+const semAc = t => String(t||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().trim();
+function descSugs(q){
+  const m = new Map();
+  for (const e of (fKind==="gasto" ? state.expenses : (state.incomes||[]))){
+    const d = (e.desc||"").trim(); if (!d) continue;
+    const k = semAc(d), cur = m.get(k);
+    if (!cur) m.set(k, {d, n:1, last:e}); else { cur.n++; if ((e.criado||0) > (cur.last.criado||0)) cur.last = e; }
+  }
+  const qq = semAc(q);
+  return [...m.values()].filter(x => !qq || semAc(x.d).includes(qq)).filter(x => semAc(x.d) !== qq)
+    .sort((a,b) => (semAc(b.d).startsWith(qq) - semAc(a.d).startsWith(qq)) || b.n - a.n).slice(0, 4);
+}
+function showSugs(){
+  const box = $("#descSug"), list = descSugs($("#fDesc").value);
+  box.innerHTML = list.map((x,i) => `<button type="button" class="chip" data-sug="${i}">${esc(x.d)}</button>`).join("");
+  box.style.display = list.length ? "flex" : "none"; box._list = list;
+}
+$("#fDesc").addEventListener("input", showSugs);
+$("#fDesc").addEventListener("focus", showSugs);
+$("#fDesc").addEventListener("blur", () => setTimeout(()=>{ $("#descSug").style.display = "none"; }, 180));
+$("#fDesc").addEventListener("keydown", e => { if (e.key === "Enter"){ e.preventDefault(); e.target.blur(); } });
+$("#descSug").addEventListener("pointerdown", e => e.preventDefault()); // keep the keyboard from jumping
+$("#descSug").addEventListener("click", e => {
+  const b = e.target.closest("[data-sug]"); if (!b) return;
+  const x = $("#descSug")._list[+b.dataset.sug]; $("#fDesc").value = x.d;
+  if (!editing && fKind==="gasto"){
+    if (!fCat && state.cats.some(c=>c.id===x.last.cat)) fCat = x.last.cat;
+    if (PAY_ORDER.includes(x.last.pag)) fPay = x.last.pag;
+    syncSheet();
+  }
+  $("#descSug").style.display = "none"; $("#fDesc").blur();
+});
 $("#fPay").addEventListener("click", e => { const b=e.target.closest("button"); if(!b) return; fPay=b.dataset.p; syncSheet(); });
 $("#fKind").addEventListener("click", e => { const b=e.target.closest("[data-k]"); if(!b || editing) return;
   const prev = fKind; fKind = b.dataset.k; $("#fErr").textContent = "";
