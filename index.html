@@ -1638,6 +1638,12 @@ $$(".tab").forEach(t=>t.addEventListener("click", ()=>go(t.dataset.v)));
 document.addEventListener("click", e => {
   const ms = e.target.closest("[data-mstep]"); if (ms){ curM += +ms.dataset.mstep; if (curM<0){curM=11;curY--;} if (curM>11){curM=0;curY++;} render(); return; }
   const ys = e.target.closest("[data-ystep]"); if (ys){ gY += +ys.dataset.ystep; render(); return; }
+  // tapping a card on Mês opens Extrato with that card and the month on screen
+  const ccGo = e.target.closest(".cc[data-pf]"); if (ccGo && ccGo.dataset.pf!=="all"){
+    const ym = `${curY}-${String(curM+1).padStart(2,"0")}`, ini = ym+"-01", fim = ym+"-"+String(new Date(curY,curM+1,0).getDate()).padStart(2,"0");
+    lf.mode="gastos"; lf.per="custom"; lf.de=ini; lf.ate=fim; lf.fat=false; lf.q=""; $("#lq").value="";
+    lf.pay = ccGo.dataset.pf; lf.box = boxFilter; lf.cats.clear(); payFilter = "all";
+    $("#lDe").value=ini; $("#lAte").value=fim; go("lista"); return; }
   const pf = e.target.closest("[data-pf]"); if (pf){ const p = pf.dataset.pf; payFilter = (payFilter===p || p==="all") ? "all" : p; render(); return; }
   const cf = e.target.closest("[data-clearf]"); if (cf){ payFilter = "all"; boxFilter = "all"; render(); return; }
   const bf = e.target.closest("[data-bf]"); if (bf){ const b = bf.dataset.bf; boxFilter = boxFilter===b ? "all" : b; render(); return; }
