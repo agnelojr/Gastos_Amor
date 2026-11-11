@@ -1030,7 +1030,8 @@ function renderFaturas(al){
     return `<div class="card fat"><div class="fh"><span class="dot" style="background:${PAY[k.id].c}"></span><b>Fatura ${esc(k.n)}</b><button class="link" data-fatcal="${esc(k.id)}" style="margin-left:auto;font-size:13px">📅 Datas de cada mês</button></div>` +
       (hoje <= ant.venc ? row(ant, "Fechada · a pagar", `${brD(ant.ini)} a ${brD(ant.fim)} · vence ${brD(ant.venc)}`) : "") +
       row(atual, "Atual (aberta)", `${brD(atual.ini)} a ${brD(atual.fim)} · vence ${brD(atual.venc)}`, "atual") +
-      row(prox, "Próxima", `${brD(prox.ini)} a ${brD(prox.fim)} · até hoje + parcelas`) + `</div>`;
+      // only two invoices at a time: closed+current while the closed one is unpaid, otherwise current+next
+      (hoje <= ant.venc ? "" : row(prox, "Próxima", `${brD(prox.ini)} a ${brD(prox.fim)} · até hoje + parcelas`)) + `</div>`;
   }).join("");
 }
 // list of the coming invoices so the closing/due date can be chosen month by month
