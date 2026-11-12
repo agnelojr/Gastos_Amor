@@ -165,6 +165,18 @@ h2{font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--text
 .row:last-child{border-bottom:0}
 .row label{width:96px;color:var(--text-2);font-size:15px;flex:none}
 .row input,.row select{flex:1;border:0;background:none;outline:none;min-width:0;font-size:16px;text-align:right}
+.itn{padding:10px 14px;border-bottom:1px solid var(--line);display:grid;grid-template-columns:1fr 1fr auto;gap:6px 10px;align-items:center}
+.itn input{border:0;background:none;outline:none;min-width:0;font-size:16px;color:var(--text)}
+.itn input.d{grid-column:1/4;font-weight:600}
+.itn input.q{border-top:1px solid var(--line);padding-top:6px}
+.itn input.p{border-top:1px solid var(--line);padding-top:6px;text-align:right}
+.itn .x{color:var(--danger);font-size:20px;line-height:1;padding:6px 2px 0 6px}
+.itact{justify-content:space-between}
+.itsum{padding:10px 14px;font-size:13px;color:var(--text-3);border-top:1px solid var(--line)}
+.itsum:empty{display:none}
+.itpaste textarea{width:100%;min-height:110px;border:0;border-top:1px solid var(--line);background:none;outline:none;padding:12px 14px;font:14px ui-monospace,Menlo,monospace;color:var(--text);resize:vertical}
+.lab .opt{text-transform:none;letter-spacing:0;font-weight:400}
+.item .t .sub{display:block;font-size:12.5px;color:var(--text-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px}
 .lab{font-size:13px;color:var(--text-3);margin:16px 6px 8px;font-weight:600;text-transform:uppercase;letter-spacing:.05em}
 .chips{display:flex;flex-wrap:wrap;gap:8px}
 .chip{padding:8px 12px;border-radius:20px;background:var(--surface);font-size:14px;display:inline-flex;align-items:center;gap:6px;border:1.5px solid transparent}
@@ -650,6 +662,16 @@ body.lockbg{position:fixed;left:0;right:0;overflow:hidden}
   <div class="chips" id="fBoxA"></div>
   <div class="lab" id="boxBLab">Vai para a caixinha</div>
   <div class="chips" id="fBoxB"></div>
+  <div class="lab" id="itLab">Itens da compra <span class="opt">(opcional)</span></div>
+  <div class="field" id="itBox">
+    <div id="itList"></div>
+    <div class="row itact"><button class="link" id="itAdd" type="button">＋ Adicionar item</button><button class="link" id="itPasteBtn" type="button">Colar lista</button></div>
+    <div class="itsum" id="itSum"></div>
+  </div>
+  <div class="field itpaste" id="itPasteBox" style="display:none">
+    <div class="row itact"><button class="link" id="itPCancel" type="button">Cancelar</button><button class="link strong" id="itPOk" type="button">Adicionar à lista</button></div>
+    <textarea id="itTxt" placeholder="Uma linha por item: descrição; quantidade; preço&#10;Ex.: Carne bovina; 0,874 kg; 33,20" autocapitalize="off" autocomplete="off"></textarea>
+  </div>
   <div class="err" id="fErr"></div>
   <button class="btn ghost" id="sEnd" style="display:none;color:var(--accent)">Encerrar assinatura neste mês</button>
   <button class="btn ghost" id="sRep" style="display:none;color:var(--accent)">🔁 Repetir este gasto</button>
@@ -1215,7 +1237,7 @@ function renderList(el, items, grouped){
     return `<div class="day">${esc(t)}</div><div class="list">` + g.items.map(a => { const c = catById(a.e.cat);
       return `<button class="item" data-edit="${esc(a.e.id)}" data-ym="${a.y}-${String(a.m+1).padStart(2,"0")}">
         <span class="ico" style="background:color-mix(in srgb, ${catColor(c)} 18%, transparent)">${c.e}</span>
-        <span class="t"><b>${esc(a.e.desc || c.n)}</b><span class="tag"><span class="dot" style="background:${PAY[a.e.pag]?.c||'var(--outro)'};width:8px;height:8px"></span>${PAY[a.e.pag]?.n||''} · ${a.rec?(a.fut?'🔁 previsto':'🔁 mensal'):esc(c.n)}${a.e.box?` · ${boxById(a.e.box).e}`:''}</span></span>
+        <span class="t"><b>${esc(a.e.desc || c.n)}</b><span class="tag"><span class="dot" style="background:${PAY[a.e.pag]?.c||'var(--outro)'};width:8px;height:8px"></span>${PAY[a.e.pag]?.n||''} · ${a.rec?(a.fut?'🔁 previsto':'🔁 mensal'):esc(c.n)}${a.e.box?` · ${boxById(a.e.box).e}`:''}</span>${subHTML(a.e)}</span>
         <span class="a num">${brl(a.val)}${a.n>1?`<small>${a.k}/${a.n} de ${brl(a.e.valor)}</small>`:''}</span></button>`;
     }).join("") + `</div>`;
   }).join("");
@@ -1442,7 +1464,7 @@ function perRange(){
   if (lf.per==="custom") return [-Infinity, Infinity]; // filtered by exact day below
   return [-Infinity, nowT];
 }
-function matchQ(e){ if (!lf.q) return true; const q = norm(lf.q); return norm(e.desc).includes(q) || norm(catById(e.cat).n).includes(q); }
+function matchQ(e){ if (!lf.q) return true; const q = norm(lf.q); return norm(e.desc).includes(q) || norm(catById(e.cat).n).includes(q) || norm(itensTxt(e)).includes(q); }
 function matchPC(e){ return (lf.pay==="all" || e.pag===lf.pay) && (lf.box==="all" || e.box===lf.box) && (!lf.cats.size || lf.cats.has(e.cat)); }
 function renderLista(al){
   // filter chips
@@ -1488,7 +1510,7 @@ function renderLista(al){
         const extra = x.n>1 ? ` · ${x.k}/${x.n}` : x.rec ? " · 🔁" : "";
         return `<button class="item" data-edit="${esc(x.e.id)}" data-ym="${x.y}-${String(x.m+1).padStart(2,"0")}">
           <span class="ico" style="background:color-mix(in srgb, ${catColor(c)} 18%, transparent)">${c.e}</span>
-          <span class="t"><b>${esc(x.e.desc || c.n)}</b><span class="tag">${dd} · <span class="dot" style="background:${PAY[x.e.pag]?.c};width:8px;height:8px"></span>${PAY[x.e.pag]?.n} · ${esc(c.n)}${extra}</span></span>
+          <span class="t"><b>${esc(x.e.desc || c.n)}</b><span class="tag">${dd} · <span class="dot" style="background:${PAY[x.e.pag]?.c};width:8px;height:8px"></span>${PAY[x.e.pag]?.n} · ${esc(c.n)}${extra}</span>${subHTML(x.e)}</span>
           <span class="a num">${brl(x.val)}</span></button>`; }).join("") + `</div>`;
   }).join("");
 }
@@ -1746,6 +1768,50 @@ $("#wipe").addEventListener("click", () => ask("Apagar todos os lançamentos (ga
 
 /* ---------------- sheet ---------------- */
 let editing = null, editKind = "exp", fKind = "gasto", fPay = "outro", fCat = null, fParc = 1, fRec = false, fFrom = null, fTo = null;
+let fItens = []; // purchase items of the expense being edited: {d: description, q: quantity text, p: price in cents}
+// price typed as "33,20", "1.234,56", "R$ 5" or "5.9" -> cents
+const parsePreco = s => { let t = String(s||"").replace(/[^\d.,]/g,""); if (!t) return 0;
+  if (t.includes(",")) t = t.replace(/\./g,"").replace(",","."); else if ((t.match(/\./g)||[]).length>1) t = t.replace(/\./g,"");
+  const n = parseFloat(t); return isFinite(n) ? Math.round(n*100) : 0; };
+const itensLimpos = arr => (arr||[]).map(x => ({d:String(x.d||"").trim(), q:String(x.q||"").trim(), p:x.p|0})).filter(x => x.d || x.q || x.p);
+const itensTxt = e => (e.itens||[]).map(x => x.d).filter(Boolean).join(", ");
+const subHTML = e => { const t = itensTxt(e); return t ? `<span class="sub">🧾 ${esc(t)}</span>` : ""; };
+function renderItens(){
+  $("#itList").innerHTML = fItens.map((x,i) => `<div class="itn">
+    <input class="d" data-it="d" data-i="${i}" placeholder="Descrição do item" value="${esc(x.d)}" autocomplete="off">
+    <input class="q" data-it="q" data-i="${i}" placeholder="Qtd (2 un, 0,5 kg)" value="${esc(x.q)}" autocomplete="off">
+    <input class="p num" data-it="p" data-i="${i}" inputmode="decimal" placeholder="Preço R$" value="${x.p ? esc(fmtInput(x.p)) : ""}" autocomplete="off">
+    <button class="x" data-itdel="${i}" type="button" aria-label="Remover item">×</button></div>`).join("");
+  sumItens();
+}
+function sumItens(){
+  const its = itensLimpos(fItens);
+  if (!its.length){ $("#itSum").textContent = ""; return; }
+  const soma = its.reduce((a,x)=>a+x.p,0), tot = parseInput($("#fVal").value);
+  $("#itSum").textContent = `${its.length} ${its.length===1?"item":"itens"} · soma ${brl(soma)}` + (tot && soma && tot!==soma ? ` · total do gasto ${brl(tot)}` : "");
+}
+$("#itAdd").addEventListener("click", () => { fItens.push({d:"",q:"",p:0}); renderItens(); const ins = $("#itList").querySelectorAll("input.d"); ins[ins.length-1]?.focus(); });
+$("#itList").addEventListener("input", ev => { const t = ev.target; if (!t.dataset.it) return; const x = fItens[+t.dataset.i]; if (!x) return;
+  if (t.dataset.it==="p") x.p = parsePreco(t.value); else x[t.dataset.it] = t.value; sumItens(); });
+$("#itList").addEventListener("click", ev => { const b = ev.target.closest("[data-itdel]"); if (!b) return; fItens.splice(+b.dataset.itdel,1); renderItens(); });
+$("#fVal").addEventListener("input", sumItens);
+$("#itPasteBtn").addEventListener("click", () => { $("#itPasteBox").style.display = "block"; $("#itTxt").value = ""; $("#itTxt").focus(); });
+$("#itPCancel").addEventListener("click", () => { $("#itPasteBox").style.display = "none"; });
+function addPasted(){
+  const novos = $("#itTxt").value.split(/\r?\n/).map(l => l.trim()).filter(Boolean).map(l => {
+    const c = l.split(/;|\t/).map(z => z.trim());
+    if (c.length >= 3) return {d:c[0], q:c[1], p:parsePreco(c[2])};
+    if (c.length === 2) return {d:c[0], q:"", p:parsePreco(c[1])};
+    return {d:c[0], q:"", p:0};
+  });
+  if (!novos.length){ $("#itPasteBox").style.display = "none"; return 0; }
+  fItens = itensLimpos(fItens).concat(novos); renderItens(); $("#itTxt").value = "";
+  $("#itTxt").blur(); $("#itPasteBox").style.display = "none"; toast(`${novos.length} ${novos.length===1?"item adicionado":"itens adicionados"}`);
+  return novos.length;
+}
+$("#itPOk").addEventListener("click", addPasted);
+// pasting a list (more than one line) adds it right away
+$("#itTxt").addEventListener("paste", () => setTimeout(() => { if ($("#itTxt").value.trim().split(/\r?\n/).length > 1) addPasted(); }, 60));
 const firstPay = () => state.cards[0]?.id || "outro";
 const isCredit = p => PAY[p].t === "credito";
 const hasBox = id => !!state.boxes.find(b=>b.id===id);
@@ -1777,6 +1843,8 @@ function openSheet(e, kind="gasto", ym){
   }
   fRec = !!(e && e.rec);
   $("#fFim").value = e?.fim || "";
+  fItens = (e?.itens||[]).map(x => ({d:x.d||"", q:x.q||"", p:x.p|0})); renderItens();
+  $("#itPasteBox").style.display = "none";
   $("#sEnd").style.display = "none";
   $("#sEnd").textContent = kind==="gasto" ? "Encerrar assinatura neste mês" : "Parar de repetir a partir deste mês";
   $("#fErr").textContent = "";
@@ -1788,6 +1856,10 @@ function openSheet(e, kind="gasto", ym){
 }
 function closeSheet(){ $("#scrim").classList.remove("on"); $("#sheet").classList.remove("on"); document.activeElement?.blur(); unlockBg(); }
 let bgY = 0;
+if (window.visualViewport){
+  const kbPad = () => { const kb = Math.max(0, innerHeight - visualViewport.height - visualViewport.offsetTop); $("#sheet").style.paddingBottom = kb > 80 ? (kb + 24) + "px" : ""; };
+  visualViewport.addEventListener("resize", kbPad); visualViewport.addEventListener("scroll", kbPad);
+}
 function lockBg(){ if (document.body.classList.contains("lockbg")) return; bgY = scrollY; document.body.style.top = -bgY + "px"; document.body.classList.add("lockbg"); }
 function unlockBg(){ if (!document.body.classList.contains("lockbg")) return; document.body.classList.remove("lockbg"); document.body.style.top = ""; scrollTo(0, bgY); }
 function boxChips(val, key, none){
@@ -1819,7 +1891,8 @@ function syncSheet(){
   $("#sRep").style.display = editing && fKind==="gasto" && !editing.rec ? "block" : "none";
   $("#fKind").style.display = editing ? "none" : "flex";
   $$("#fKind button").forEach(b=>b.classList.toggle("on", b.dataset.k===fKind));
-  ["#payLab","#fPay","#catLab","#fCats"].forEach(s => $(s).style.display = g ? "" : "none");
+  ["#payLab","#fPay","#catLab","#fCats","#itLab","#itBox"].forEach(s => $(s).style.display = g ? "" : "none");
+  if (!g) $("#itPasteBox").style.display = "none";
   if (!g) $("#ncBox").style.display = "none";
   $("#fDesc").placeholder = g ? "Ex.: Supermercado" : fKind==="ent" ? "Ex.: Salário" : "Ex.: Guardar para a viagem";
   if (g){ $("#boxALab").textContent = "Sai da caixinha"; $("#fBoxA").innerHTML = boxChips(fFrom, "bfrom", true); }
@@ -1933,6 +2006,7 @@ $("#sCancel").addEventListener("click", closeSheet);
 $("#scrim").addEventListener("click", closeSheet);
 $("#sSave").addEventListener("click", async () => {
   const err = t => { $("#fErr").textContent = t; };
+  if (fKind==="gasto" && $("#itPasteBox").style.display !== "none" && $("#itTxt").value.trim()) addPasted();
   const valor = parseInput($("#fVal").value);
   if (!valor) return err(fKind==="gasto" ? "Informe o valor do gasto." : "Informe o valor.");
   const data = $("#fData").value || todayISO();
@@ -1944,6 +2018,7 @@ $("#sSave").addEventListener("click", async () => {
   if (fKind==="gasto"){
     if (!fCat) return err("Escolha uma categoria.");
     rec = { ...base, cat: fCat, pag: fPay, parc: fRec?1:fParc }; kind = "exp";
+    const itens = itensLimpos(fItens); if (itens.length) rec.itens = itens;
     if (fFrom) rec.box = fFrom;
   } else {
     if (!state.boxes.length) return err("Crie uma caixinha em Ajustes primeiro.");
