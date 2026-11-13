@@ -686,7 +686,7 @@ body.lockbg{position:fixed;left:0;right:0;overflow:hidden}
     <button id="maAll">Todos os meses (corrigir)</button>
     <button id="maNo">Cancelar</button>
   </div>
-  <p class="faint" style="font-size:12px;padding:0 16px 12px;margin:0">“Só neste mês” serve para cobranças pontuais, como IOF. “Deste mês em diante” mantém o valor antigo nos meses anteriores.</p></div></div>
+  <p class="faint" style="font-size:12px;padding:0 16px 12px;margin:0">“Só neste mês” serve para cobranças pontuais, como IOF, ou um mês pago em outro cartão. “Deste mês em diante” mantém os meses anteriores como estavam.</p></div></div>
 <div class="modal" id="modalRec"><div class="box"><p id="mrText"></p>
   <div class="acts recacts">
     <button id="mrOne">Só a deste mês</button>
@@ -2031,7 +2031,8 @@ $("#sSave").addEventListener("click", async () => {
     if (fKind==="transf") rec.de = fFrom;
   }
   // price change on a subscription, opened from a month after it started: ask from when it applies
-  if (editing && editing.rec && fRec && rec.valor !== editValShown){
+  const pagMudou = kind==="exp" && editing && editing.rec && fRec && rec.pag !== editing.pag;
+  if (editing && editing.rec && fRec && (rec.valor !== editValShown || pagMudou)){
     pendReaj = {e: rec, kind}; abrirReaj(editing, rec.valor); return;
   }
   closeSheet();
@@ -2043,7 +2044,11 @@ $("#sSave").addEventListener("click", async () => {
 let pendReaj = null;
 function abrirReaj(old, novo){
   const deV = editValShown != null ? editValShown : old.valor;
-  $("#maText").innerHTML = `<b>${esc(old.desc||(pendReaj?.kind==="inc"?"Entrada":"Assinatura"))}</b>: de ${brl(deV)} para <b>${brl(novo)}</b>. Onde vale o novo valor?`;
+  const nv = pendReaj?.e, valMudou = novo !== deV, pagM = nv && nv.pag && old.pag && nv.pag !== old.pag;
+  const partes = [];
+  if (valMudou) partes.push(`valor de ${brl(deV)} para <b>${brl(novo)}</b>`);
+  if (pagM) partes.push(`cartão de ${esc(PAY[old.pag]?.n||"?")} para <b>${esc(PAY[nv.pag]?.n||"?")}</b>`);
+  $("#maText").innerHTML = `<b>${esc(old.desc||(pendReaj?.kind==="inc"?"Entrada":"Assinatura"))}</b>: ${partes.join(" e ")}. Onde vale a mudança?`;
   $("#maOne").textContent = `Só em ${ymLabel(editYM)}`;
   $("#maFrom").textContent = `De ${ymLabel(editYM)} em diante`;
   $("#modalAdj").classList.add("on");
@@ -2057,13 +2062,21 @@ async function aplicarReaj(modo){
   const put = (x) => kind ? store.put(x, kind) : store.put(x);
   try{
     if (modo === "one"){
+      if (e.pag && old.pag && e.pag !== old.pag){
+        // card changed just this month: the subscription skips it and a one-off charge takes its place
+        const x = {...old, skip: [...new Set([...(old.skip||[]), ym])].sort()};
+        const dia = Math.min(+old.data.slice(8), new Date(+ym.slice(0,4), +ym.slice(5,7), 0).getDate());
+        const um = {id: uid(), valor: e.valor, desc: e.desc, data: `${ym}-${String(dia).padStart(2,"0")}`, cat: e.cat, pag: e.pag, parc: 1, criado: Date.now()};
+        if (e.box) um.box = e.box; if (e.itens) um.itens = e.itens;
+        await put(x); await put(um); toast(`Cartão alterado só em ${ymLabel(ym)}`); return;
+      }
       // only this month gets the new value (e.g. IOF); the subscription keeps its normal value
       const x = {...old, vals: {...(old.vals||{}), [ym]: e.valor}};
       await put(x); toast(`Valor alterado só em ${ymLabel(ym)}`); return;
     }
     if (!desdeJa || ym <= old.data.slice(0,7)){
       const x = {...e}; if (x.vals){ delete x.vals[ym]; if (!Object.keys(x.vals).length) delete x.vals; }
-      await put(x); toast(desdeJa ? `Novo valor de ${ymLabel(ym)} em diante` : "Valor corrigido em todos os meses"); return;
+      await put(x); toast(desdeJa ? `Mudança de ${ymLabel(ym)} em diante` : "Corrigido em todos os meses"); return;
     }
     // keep history: the old series ends the month before; a new one starts this month
     const antigo = {...old, fim: ymPrev(ym)};
@@ -2073,7 +2086,7 @@ async function aplicarReaj(modo){
     const va = Object.fromEntries(Object.entries(old.vals||{}).filter(([k])=>k<ym)); if (Object.keys(va).length) antigo.vals = va; else delete antigo.vals;
     const vn = Object.fromEntries(Object.entries(e.vals||{}).filter(([k])=>k>ym)); if (Object.keys(vn).length) novo.vals = vn; else delete novo.vals;
     await put(antigo); await put(novo);
-    toast(`Novo valor a partir de ${ymLabel(ym)}`);
+    toast(`Mudança a partir de ${ymLabel(ym)}`);
   }catch(err){ toast("Não foi possível salvar"); }
 }
 $("#maOne").addEventListener("click", ()=>aplicarReaj("one"));
