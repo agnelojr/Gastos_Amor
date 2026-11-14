@@ -1852,7 +1852,8 @@ function openSheet(e, kind="gasto", ym){
   syncSheet();
   $("#scrim").classList.add("on"); $("#sheet").classList.add("on"); lockBg(); $("#sheet").scrollTop = 0;
   $("#amtHint").style.display = e ? "none" : "block"; $("#descSug").style.display = "none";
-  if (!e) setTimeout(()=>$("#fVal").focus(), 300);
+  // new expense: focus the value right away, still inside the tap, so the iPhone opens the number pad
+  if (!e){ try{ $("#fVal").focus({preventScroll:true}); }catch(_){ $("#fVal").focus(); } setTimeout(()=>{ if (document.activeElement !== $("#fVal")) $("#fVal").focus({preventScroll:true}); $("#sheet").scrollTop = 0; }, 320); }
 }
 function closeSheet(){ $("#scrim").classList.remove("on"); $("#sheet").classList.remove("on"); document.activeElement?.blur(); unlockBg(); }
 let bgY = 0;
